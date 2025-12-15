@@ -1,17 +1,39 @@
+"use client";
+
 import { searchDramas } from "@/lib/api";
 import DramaList from "@/components/DramaList";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Suspense } from "react";
 
-export default async function SearchPage({
-    searchParams,
-}: {
-    searchParams: { q?: string };
-}) {
-    const { q } = await searchParams;
-    const query = q || "";
-    const results = query ? await searchDramas(query) : [];
+function SearchContent() {
+    const searchParams = useSearchParams();
+    const query = searchParams.get("q") || "";
+    const [results, setResults] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchResults = async () => {
+            if (!query) {
+                setResults([]);
+                return;
+            }
+            setLoading(true);
+            try {
+                const data = await searchDramas(query);
+                setResults(data);
+            } catch (error) {
+                console.error("Search error:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchResults();
+    }, [query]);
 
     return (
         <main className="min-h-screen bg-black text-white">
@@ -27,7 +49,11 @@ export default async function SearchPage({
                     </h1>
                 </div>
 
-                {query ? (
+                {loading ? (
+                    <div className="flex justify-center py-20">
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                ) : query ? (
                     results.length > 0 ? (
                         <DramaList dramas={results} title="" />
                     ) : (
@@ -42,5 +68,13 @@ export default async function SearchPage({
                 )}
             </div>
         </main>
+    );
+}
+
+export default function SearchPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-black" />}>
+            <SearchContent />
+        </Suspense>
     );
 }

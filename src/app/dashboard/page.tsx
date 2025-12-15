@@ -1,16 +1,33 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { LogOut, History, Heart, Settings, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-export default async function DashboardPage() {
-    const session = await getServerSession(authOptions);
+export default function DashboardPage() {
+    const { data: session, status } = useSession();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            router.push("/");
+        }
+    }, [status, router]);
+
+    if (status === "loading") {
+        return (
+            <main className="min-h-screen bg-[#121212] pt-20 pb-10 flex items-center justify-center">
+                <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </main>
+        );
+    }
 
     if (!session) {
-        redirect("/");
+        return null; // Will redirect via useEffect
     }
 
     return (
