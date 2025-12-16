@@ -30,18 +30,31 @@ export const authOptions: NextAuthOptions = {
     callbacks: {
         async signIn({ user, account }) {
             if (account?.provider === "google") {
+                // Check for Service Key availability
+                if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+                    console.error("❌ CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing. User data cannot be saved to Supabase.");
+                    return true; // Allow login even if sync fails
+                }
+
+                console.log("🔄 Attempting to sync user to Supabase:", user.email);
+
                 try {
                     // Use Admin client to bypass RLS policies
-                    const { error } = await supabaseAdmin.from("users").upsert({
-                        email: user.email!,
-                        name: user.name || "",
+                    const { data, error } = await supabaseAdmin.from("users").upsert({
+                        email: user.email!, // Email is required/primary key
+                        name: user.name || "Anonymous",
                         image: user.image || "",
                         provider: "google",
-                    }, { onConflict: "email" });
+                        created_at: new Date().toISOString(), // Ensure timestamps
+                    }, { onConflict: "email" }).select();
 
-                    if (error) console.error("Supabase Sync Error:", error);
+                    if (error) {
+                        console.error("❌ Supabase Upsert Error:", error.message, error.details);
+                    } else {
+                        console.log("✅ User synced to Supabase successfully:", data);
+                    }
                 } catch (e) {
-                    console.error("Supabase Sync Failed:", e);
+                    console.error("❌ Supabase Sync Unexpected Failed:", e);
                 }
             }
             return true;
