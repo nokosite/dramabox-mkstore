@@ -200,7 +200,10 @@ export default function Navbar() {
                         </div>
 
                         <button
-                            onClick={() => signIn("google")}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                signIn("google");
+                            }}
                             className="w-full bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-medium py-3 px-4 rounded-lg transition flex items-center justify-center gap-3 group"
                         >
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
