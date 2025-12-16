@@ -1,47 +1,46 @@
-import { NextRequest, NextResponse } from "next/server";
-
-const API_BASE = "https://dramabox.sansekai.my.id/api/dramabox";
-
 // Dynamic Proxy for Vercel
-export const dynamic = "force-dynamic"; // Ensure it runs dynamically
+export const dynamic = "force-dynamic";
 
-const params = await props.params;
-const { path } = await params;
-const pathStr = path.join("/");
-const searchParams = req.nextUrl.search; // includes ?query=...
+export async function GET(req: NextRequest, props: { params: Promise<{ path: string[] }> }) {
 
-const targetUrl = `${API_BASE}/${pathStr}${searchParams}`;
 
-// console.log(`[Proxy] Forwarding to: ${targetUrl}`);
+    const params = await props.params;
+    const { path } = await params;
+    const pathStr = path.join("/");
+    const searchParams = req.nextUrl.search; // includes ?query=...
 
-try {
-    const response = await fetch(targetUrl, {
-        headers: {
-            // Forward important headers if needed, or just keep it simple
-            // "User-Agent": req.headers.get("user-agent") || "NextJS-Proxy",
-        },
-        cache: "no-store"
-    });
+    const targetUrl = `${API_BASE}/${pathStr}${searchParams}`;
 
-    // Get the data
-    const data = await response.arrayBuffer();
+    // console.log(`[Proxy] Forwarding to: ${targetUrl}`);
 
-    // Create new response with the data and upstream headers
-    const res = new NextResponse(data, {
-        status: response.status,
-        statusText: response.statusText,
-    });
+    try {
+        const response = await fetch(targetUrl, {
+            headers: {
+                // Forward important headers if needed, or just keep it simple
+                // "User-Agent": req.headers.get("user-agent") || "NextJS-Proxy",
+            },
+            cache: "no-store"
+        });
 
-    // Copy content-type
-    res.headers.set("Content-Type", response.headers.get("Content-Type") || "application/json");
+        // Get the data
+        const data = await response.arrayBuffer();
 
-    // CORS for local dev
-    res.headers.set("Access-Control-Allow-Origin", "*");
+        // Create new response with the data and upstream headers
+        const res = new NextResponse(data, {
+            status: response.status,
+            statusText: response.statusText,
+        });
 
-    return res;
+        // Copy content-type
+        res.headers.set("Content-Type", response.headers.get("Content-Type") || "application/json");
 
-} catch (error: any) {
-    console.error("[Proxy Error]", error);
-    return NextResponse.json({ error: "Proxy Failed", details: error.message }, { status: 500 });
-}
+        // CORS for local dev
+        res.headers.set("Access-Control-Allow-Origin", "*");
+
+        return res;
+
+    } catch (error: any) {
+        console.error("[Proxy Error]", error);
+        return NextResponse.json({ error: "Proxy Failed", details: error.message }, { status: 500 });
+    }
 }
