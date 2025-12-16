@@ -18,8 +18,10 @@ export interface ApiResponse {
 
 // Direct API URL
 const DIRECT_API = 'https://dramabox.sansekai.my.id/api/dramabox';
-// Using corsproxy.io for better stability and handling of query params
-const PROD_PROXY = 'https://corsproxy.io/?';
+
+// Using CodeTabs proxy (Best success rate for bypassing WAF/Cloudflare on static sites)
+const PROD_PROXY = 'https://api.codetabs.com/v1/proxy?quest=';
+
 
 const getBaseUrl = () => {
   // Server-side: Always use direct API
