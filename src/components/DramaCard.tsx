@@ -12,8 +12,9 @@ export default function DramaCard({ drama, className }: DramaCardProps) {
     return (
         <Link
             href={{
-                pathname: `/drama/${drama.bookId}`,
+                pathname: '/play',
                 query: {
+                    bookId: drama.bookId,
                     title: drama.bookName,
                     cover: drama.coverWap
                 }

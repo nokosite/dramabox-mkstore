@@ -24,8 +24,12 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
                 <div className="lg:col-span-2 relative bg-[#1a1a1a] rounded-xl overflow-hidden group">
                     <Link
                         href={{
-                            pathname: `/drama/${mainDrama.bookId}`,
-                            query: { title: mainDrama.bookName, cover: mainDrama.coverWap }
+                            pathname: '/play',
+                            query: {
+                                bookId: mainDrama.bookId,
+                                title: mainDrama.bookName,
+                                cover: mainDrama.coverWap
+                            }
                         }}
                         className="flex flex-col md:flex-row h-full"
                     >
@@ -78,8 +82,8 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
                         <Link
                             key={drama.bookId}
                             href={{
-                                pathname: `/drama/${drama.bookId}`,
-                                query: { title: drama.bookName, cover: drama.coverWap }
+                                pathname: '/play',
+                                query: { bookId: drama.bookId, title: drama.bookName, cover: drama.coverWap }
                             }}
                             className="flex-1 relative bg-[#1a1a1a] rounded-xl overflow-hidden group flex"
                         >

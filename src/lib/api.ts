@@ -16,11 +16,51 @@ export interface ApiResponse {
   // So it returns Drama[] directly.
 }
 
-const BASE_URL = 'https://dramabox.sansekai.my.id/api/dramabox';
+// Direct API URL
+const DIRECT_API = 'https://dramabox.sansekai.my.id/api/dramabox';
+// Using a CORS proxy to bypass browser restrictions in production (Static Export)
+// 'https://api.allorigins.win/raw?url=' is a free proxy. Stable and supports raw response.
+const PROD_PROXY = 'https://api.allorigins.win/raw?url=';
+
+const getBaseUrl = () => {
+  // Server-side: Always use direct API
+  if (typeof window === 'undefined') {
+    return DIRECT_API;
+  }
+
+  // Client-side in Development: Use Local Proxy
+  if (process.env.NODE_ENV === 'development') {
+    return '/api/proxy'; // Maps to src/app/api/proxy
+  }
+
+  // Client-side in Production: Use CORS Proxy + Encoded URL
+  // We need to return the base path carefully because the proxy expects the full URL as a parameter.
+  // This refactoring will require updating how we construct URLs below.
+  return DIRECT_API;
+};
+
+// Helper to construct full URL with Proxy if needed
+const buildUrl = (path: string) => {
+  const fullUrl = `${DIRECT_API}${path}`;
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
+    // Production Client: Wrap with CORS proxy
+    return `${PROD_PROXY}${encodeURIComponent(fullUrl)}`;
+  }
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    // Dev Client: Use local proxy
+    return `/api/proxy${path}`;
+  }
+
+  // Server: Direct
+  return fullUrl;
+}
+
 
 export async function getForYouDramas(): Promise<Drama[]> {
   try {
-    const res = await fetch(`${BASE_URL}/foryou`, {
+    const res = await fetch(buildUrl('/foryou'), {
       next: { revalidate: 3600 }, // Cache for 1 hour
     } as any);
 
@@ -75,7 +115,7 @@ export interface Episode {
 export async function getDramaEpisodes(bookId: string): Promise<Episode[]> {
   try {
     // Note: This endpoint might be slower as it fetches all episodes.
-    const res = await fetch(`${BASE_URL}/allepisode?bookId=${bookId}`, {
+    const res = await fetch(buildUrl(`/allepisode?bookId=${bookId}`), {
       cache: 'no-store'
     });
 
@@ -99,15 +139,15 @@ export async function getDramaEpisodes(bookId: string): Promise<Episode[]> {
 }
 
 export async function getTrendingDramas(): Promise<Drama[]> {
-  return fetchDramas(`${BASE_URL}/trending`);
+  return fetchDramas(buildUrl('/trending'));
 }
 
 export async function getLatestDramas(): Promise<Drama[]> {
-  return fetchDramas(`${BASE_URL}/latest`);
+  return fetchDramas(buildUrl('/latest'));
 }
 
 export async function searchDramas(query: string): Promise<Drama[]> {
-  return fetchDramas(`${BASE_URL}/search?query=${encodeURIComponent(query)}`);
+  return fetchDramas(buildUrl(`/search?query=${encodeURIComponent(query)}`));
 }
 
 // Helper to reuse the parsing logic

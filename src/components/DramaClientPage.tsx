@@ -11,8 +11,13 @@ import { useEffect, useState, Suspense } from "react";
 function DramaContent() {
     const params = useParams();
     const searchParams = useSearchParams();
-    // Safely handle bookId which might be an array or string
-    const bookId = Array.isArray(params.bookId) ? params.bookId[0] : params.bookId;
+
+    // Support both /play?bookId=123 (Static Export) and /drama/123 (Dev/Dynamic)
+    const queryBookId = searchParams.get("bookId");
+    const paramBookId = Array.isArray(params?.bookId) ? params.bookId[0] : params?.bookId;
+
+    const bookId = queryBookId || paramBookId;
+
     const title = searchParams.get("title") || undefined;
     const cover = searchParams.get("cover") || undefined;
 

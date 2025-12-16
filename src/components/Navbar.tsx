@@ -34,9 +34,9 @@ export default function Navbar() {
 
                     {/* Logo & Menu */}
                     <div className="flex items-center gap-8">
-                        {/* Mobile Menu Button */}
+                        {/* Mobile Menu Button - Hidden since we use Bottom Nav */}
                         <button
-                            className="md:hidden text-white p-1"
+                            className="hidden text-white p-1" // Changed md:hidden to hidden
                             onClick={() => setMobileMenuOpen(true)}
                         >
                             <Menu size={24} />
@@ -224,6 +224,59 @@ export default function Navbar() {
                     </div>
                 </div>
             )}
+            {/* Bottom Navigation (Mobile Only) */}
+            <div className="md:hidden fixed bottom-0 left-0 w-full bg-[#121212] border-t border-white/10 px-6 py-2 z-50 flex items-center justify-between pb-safe">
+                <Link href="/" className="flex flex-col items-center gap-1 text-blue-500">
+                    <div className="p-1 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                    </div>
+                    <span className="text-[10px] font-medium">Home</span>
+                </Link>
+
+                <Link href="/search" className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+                    <div className="p-1 rounded-full">
+                        <Search size={24} />
+                    </div>
+                    <span className="text-[10px] font-medium">Search</span>
+                </Link>
+
+                <button className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+                    <div className="p-1 rounded-full">
+                        <Headphones size={24} />
+                    </div>
+                    <span className="text-[10px] font-medium">Shorts</span>
+                </button>
+
+                {session ? (
+                    <Link href="/dashboard" className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+                        <div className="w-7 h-7 rounded-full overflow-hidden border border-gray-600 relative">
+                            {session.user?.image ? (
+                                <Image
+                                    src={session.user.image}
+                                    alt="Me"
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-blue-600 flex items-center justify-center text-xs text-white">
+                                    {session.user?.name?.charAt(0)}
+                                </div>
+                            )}
+                        </div>
+                        <span className="text-[10px] font-medium">Me</span>
+                    </Link>
+                ) : (
+                    <button
+                        onClick={() => setShowLoginModal(true)}
+                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition"
+                    >
+                        <div className="p-1 rounded-full">
+                            <User size={24} />
+                        </div>
+                        <span className="text-[10px] font-medium">Me</span>
+                    </button>
+                )}
+            </div>
         </>
     );
 }
