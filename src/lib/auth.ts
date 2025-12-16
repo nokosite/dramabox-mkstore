@@ -12,6 +12,20 @@ export const authOptions: NextAuthOptions = {
         }),
     ],
     secret: process.env.NEXTAUTH_SECRET,
+    session: {
+        strategy: "jwt",
+    },
+    cookies: {
+        sessionToken: {
+            name: `__Secure-dramabox.session-token`,
+            options: {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                secure: true,
+            },
+        },
+    },
     callbacks: {
         async session({ session, token }) {
             return session;
