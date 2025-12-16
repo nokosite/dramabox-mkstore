@@ -3,7 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   output: process.env.NEXT_EXPORT === "true" ? "export" : undefined,
-  trailingSlash: true, // Fixes 403/404 on static hosts like Hostinger
   images: {
     unoptimized: true, // Required for static export
     remotePatterns: [

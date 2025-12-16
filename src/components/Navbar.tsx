@@ -2,17 +2,15 @@
 
 
 
-import Link from "next/link";
-import { Search, User, Headphones, LogOut, Menu, X } from "lucide-react";
-// import { useSession, signIn, signOut } from "next-auth/react"; // Removed NextAuth
-import { useAuth } from "@/components/AuthProvider"; // Custom Auth
+import Link from "next/link"; // Keep only one Link
+import { Search, User, Headphones, LogOut, Menu, X } from "lucide-react"; // Keep only one import set
+import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
-    // Replace useSession with useAuth
-    const { data: session, signIn, signOut } = useAuth();
+    const { data: session, update } = useSession();
     const router = useRouter();
 
     const [showLoginModal, setShowLoginModal] = useState(false);
@@ -200,11 +198,7 @@ export default function Navbar() {
                         </div>
 
                         <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                signIn("google");
-                                setShowLoginModal(false); // Force close modal
-                            }}
+                            onClick={() => signIn("google")}
                             className="w-full bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-medium py-3 px-4 rounded-lg transition flex items-center justify-center gap-3 group"
                         >
                             <svg className="w-5 h-5" viewBox="0 0 24 24">

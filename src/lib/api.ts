@@ -19,45 +19,15 @@ export interface ApiResponse {
 // Direct API URL
 const DIRECT_API = 'https://dramabox.sansekai.my.id/api/dramabox';
 
-// Using CodeTabs proxy (Best success rate for bypassing WAF/Cloudflare on static sites)
-const PROD_PROXY = 'https://api.codetabs.com/v1/proxy?quest=';
 
-
-const getBaseUrl = () => {
-  // Server-side: Always use direct API
-  if (typeof window === 'undefined') {
-    return DIRECT_API;
-  }
-
-  // Client-side in Development: Use Local Proxy
-  if (process.env.NODE_ENV === 'development') {
-    return '/api/proxy'; // Maps to src/app/api/proxy
-  }
-
-  // Client-side in Production: Use CORS Proxy + Encoded URL
-  // We need to return the base path carefully because the proxy expects the full URL as a parameter.
-  // This refactoring will require updating how we construct URLs below.
-  return DIRECT_API;
-};
-
-// Helper to construct full URL with Proxy if needed
+// Helper to construct full URL
+// On Client (Dev & Prod), use local proxy to bypass CORS
+// On Server, use Direct API
 const buildUrl = (path: string) => {
-  const fullUrl = `${DIRECT_API}${path}`;
-
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
-    // Production Client: Wrap with CORS proxy
-    // corsproxy.io works best with the full URL appended. 
-    // We use encodeURIComponent to ensure query params are treated as part of the target URL.
-    return `${PROD_PROXY}${encodeURIComponent(fullUrl)}`;
+  if (typeof window === 'undefined') {
+    return `${DIRECT_API}${path}`;
   }
-
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    // Dev Client: Use local proxy
-    return `/api/proxy${path}`;
-  }
-
-  // Server: Direct
-  return fullUrl;
+  return `/api/proxy${path}`;
 }
 
 

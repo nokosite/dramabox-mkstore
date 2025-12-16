@@ -8,7 +8,7 @@ import {
     ChevronLeft, FastForward, MessageSquare, Heart, Share2, AlertCircle, X, Lock,
     ChevronRight, Star, Home // Added missing icons
 } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider"; // Custom Auth
+import { useSession, signIn } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link"; // Added missing Link
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ export default function DramaPlayer({
 }: DramaPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const { data: session, signIn } = useAuth(); // Replaced useSession
+    const { data: session } = useSession();
 
     // Sort episodes by index just in case
     const episodes = [...initialEpisodes].sort((a, b) => a.chapterIndex - b.chapterIndex);
