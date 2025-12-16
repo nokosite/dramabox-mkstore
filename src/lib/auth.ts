@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { supabase } from "@/lib/supabaseClient";
 
 export const authOptions: NextAuthOptions = {
     debug: true,
@@ -27,6 +28,23 @@ export const authOptions: NextAuthOptions = {
         },
     },
     callbacks: {
+        async signIn({ user, account }) {
+            if (account?.provider === "google") {
+                try {
+                    const { error } = await supabase.from("users").upsert({
+                        email: user.email!,
+                        name: user.name || "",
+                        image: user.image || "",
+                        provider: "google",
+                    }, { onConflict: "email" });
+
+                    if (error) console.error("Supabase Sync Error:", error);
+                } catch (e) {
+                    console.error("Supabase Sync Failed:", e);
+                }
+            }
+            return true;
+        },
         async session({ session, token }) {
             return session;
         },
