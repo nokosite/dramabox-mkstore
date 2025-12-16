@@ -2,11 +2,6 @@ import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { supabase } from "@/lib/supabaseClient";
 
-// FORCE HTTPS in Production to prevent Redirect Loop
-if (process.env.NODE_ENV === "production") {
-    process.env.NEXTAUTH_URL = "https://dramabox.mkstore.id";
-}
-
 export const authOptions: NextAuthOptions = {
     debug: true,
     // @ts-ignore
