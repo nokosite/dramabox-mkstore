@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 
 export const authOptions: NextAuthOptions = {
     debug: true,
+    trustHost: true, // Fix for Vercel Redirect Loop
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID || "",
