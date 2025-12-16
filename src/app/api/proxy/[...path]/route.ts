@@ -1,3 +1,7 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const API_BASE = "https://dramabox.sansekai.my.id/api/dramabox";
+
 // Dynamic Proxy for Vercel
 export const dynamic = "force-dynamic";
 
