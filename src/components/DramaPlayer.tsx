@@ -198,6 +198,8 @@ export default function DramaPlayer({
                                     <video
                                         ref={videoRef}
                                         controls={!isLocked}
+                                        controlsList="nodownload"
+                                        onContextMenu={(e) => e.preventDefault()}
                                         className={cn("w-full h-full object-contain", isLocked && "blur-sm opacity-50")}
                                         poster={dramaCover}
                                         onEnded={handleVideoEnded}
@@ -301,6 +303,8 @@ export default function DramaPlayer({
                             onEnded={handleVideoEnded}
                             playsInline
                             controls={false}
+                            controlsList="nodownload"
+                            onContextMenu={(e) => e.preventDefault()}
                             onClick={() => {
                                 if (videoRef.current?.paused) videoRef.current.play();
                                 else videoRef.current?.pause();
