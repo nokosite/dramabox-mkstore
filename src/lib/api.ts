@@ -18,9 +18,8 @@ export interface ApiResponse {
 
 // Direct API URL
 const DIRECT_API = 'https://dramabox.sansekai.my.id/api/dramabox';
-// Using a CORS proxy to bypass browser restrictions in production (Static Export)
-// 'https://api.allorigins.win/raw?url=' is a free proxy. Stable and supports raw response.
-const PROD_PROXY = 'https://api.allorigins.win/raw?url=';
+// Using corsproxy.io for better stability and handling of query params
+const PROD_PROXY = 'https://corsproxy.io/?';
 
 const getBaseUrl = () => {
   // Server-side: Always use direct API
@@ -45,6 +44,8 @@ const buildUrl = (path: string) => {
 
   if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
     // Production Client: Wrap with CORS proxy
+    // corsproxy.io works best with the full URL appended. 
+    // We use encodeURIComponent to ensure query params are treated as part of the target URL.
     return `${PROD_PROXY}${encodeURIComponent(fullUrl)}`;
   }
 
