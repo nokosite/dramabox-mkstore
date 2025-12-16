@@ -1,6 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const authOptions: NextAuthOptions = {
     debug: true,
@@ -31,7 +31,8 @@ export const authOptions: NextAuthOptions = {
         async signIn({ user, account }) {
             if (account?.provider === "google") {
                 try {
-                    const { error } = await supabase.from("users").upsert({
+                    // Use Admin client to bypass RLS policies
+                    const { error } = await supabaseAdmin.from("users").upsert({
                         email: user.email!,
                         name: user.name || "",
                         image: user.image || "",
