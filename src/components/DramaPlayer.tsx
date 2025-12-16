@@ -27,7 +27,8 @@ export default function DramaPlayer({
     dramaTitle,
     dramaCover
 }: DramaPlayerProps) {
-    const videoRef = useRef<HTMLVideoElement>(null);
+    const desktopVideoRef = useRef<HTMLVideoElement>(null);
+    const mobileVideoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { data: session } = useSession();
 
@@ -35,7 +36,6 @@ export default function DramaPlayer({
     const episodes = [...initialEpisodes].sort((a, b) => a.chapterIndex - b.chapterIndex);
 
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(episodes[0]);
-    // Duplicate videoRef removed from here
 
     // Filter/Pagination for episodes (Group by 50)
     const [page, setPage] = useState(0);
@@ -57,12 +57,23 @@ export default function DramaPlayer({
         }
     };
 
+    const playVideo = async () => {
+        try {
+            // Try playing both refs safely
+            if (desktopVideoRef.current) await desktopVideoRef.current.play();
+            if (mobileVideoRef.current) await mobileVideoRef.current.play();
+        } catch (e) {
+            console.log("Auto-play blocked or failed", e);
+        }
+    };
+
     // Auto-scroll to top of player when episode changes could be nice, but let's keep it simple
     useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.load();
-            videoRef.current.play().catch(() => { });
-        }
+        // Load and play for all refs present
+        [desktopVideoRef.current, mobileVideoRef.current].forEach(ref => {
+            if (ref) ref.load();
+        });
+        playVideo();
     }, [currentEpisode]);
 
     const getVideoSrc = (ep: Episode) => {
@@ -198,7 +209,7 @@ export default function DramaPlayer({
                             {/* Player Wrapper */}
                             <div className="relative w-full bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800 aspect-video group">
                                 <video
-                                    ref={videoRef}
+                                    ref={desktopVideoRef}
                                     controls={!isLocked}
                                     className={cn("w-full h-full object-contain", isLocked && "blur-sm opacity-50")}
                                     poster={dramaCover}
@@ -347,15 +358,15 @@ export default function DramaPlayer({
                 {/* Main Video Area */}
                 <div className="flex-1 relative bg-[#0a0a0a] flex items-center justify-center">
                     <video
-                        ref={videoRef}
+                        ref={mobileVideoRef}
                         className={cn("w-full h-full object-contain md:object-cover", isLocked && "blur-md opacity-30")} // Use contain for safe viewing, or cover for immersive if vertical
                         poster={dramaCover}
                         onEnded={handleVideoEnded}
                         playsInline
                         controls={false} // Custom controls or minimal controls interactions
                         onClick={() => {
-                            if (videoRef.current?.paused) videoRef.current.play();
-                            else videoRef.current?.pause();
+                            if (mobileVideoRef.current?.paused) mobileVideoRef.current.play();
+                            else mobileVideoRef.current?.pause();
                         }}
                     >
                         {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
