@@ -4,13 +4,15 @@
 
 import Link from "next/link";
 import { Search, User, Headphones, LogOut, Menu, X } from "lucide-react";
-import { useSession, signIn, signOut } from "next-auth/react";
+// import { useSession, signIn, signOut } from "next-auth/react"; // Removed NextAuth
+import { useAuth } from "@/components/AuthProvider"; // Custom Auth
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
-    const { data: session, update } = useSession();
+    // Replace useSession with useAuth
+    const { data: session, signIn, signOut } = useAuth();
     const router = useRouter();
 
     const [showLoginModal, setShowLoginModal] = useState(false);

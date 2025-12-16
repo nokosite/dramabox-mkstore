@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import Hls from "hls.js";
 import { Episode } from "@/lib/api";
-import { Play, Lock, ChevronRight, Home, Star, X } from "lucide-react";
-import Link from "next/link";
+import {
+    Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings,
+    ChevronLeft, FastForward, MessageSquare, Heart, Share2, AlertCircle, X, Lock,
+    ChevronRight, Star, Home // Added missing icons
+} from "lucide-react";
+import { useAuth } from "@/components/AuthProvider"; // Custom Auth
 import Image from "next/image";
+import Link from "next/link"; // Added missing Link
 import { cn } from "@/lib/utils";
 
-import { useSession, signIn } from "next-auth/react";
 
 interface DramaPlayerProps {
     initialEpisodes: Episode[];
@@ -16,14 +21,21 @@ interface DramaPlayerProps {
     dramaCover?: string;
 }
 
-export default function DramaPlayer({ initialEpisodes, bookId, dramaTitle, dramaCover }: DramaPlayerProps) {
-    const { data: session } = useSession();
+export default function DramaPlayer({
+    initialEpisodes,
+    bookId,
+    dramaTitle,
+    dramaCover
+}: DramaPlayerProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const { data: session, signIn } = useAuth(); // Replaced useSession
 
     // Sort episodes by index just in case
     const episodes = [...initialEpisodes].sort((a, b) => a.chapterIndex - b.chapterIndex);
 
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(episodes[0]);
-    const videoRef = useRef<HTMLVideoElement>(null);
+    // Duplicate videoRef removed from here
 
     // Filter/Pagination for episodes (Group by 50)
     const [page, setPage] = useState(0);
