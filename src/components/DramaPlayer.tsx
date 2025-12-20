@@ -80,7 +80,7 @@ export default function DramaPlayer({
 
     // Auto-play next episode when ended
     const handleVideoEnded = () => {
-        if (!session) return; // Don't auto-play if locked
+        // if (!session) return; // REMOVED LOCK
 
         const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
         if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
@@ -113,8 +113,8 @@ export default function DramaPlayer({
     const rangeEnd = Math.min((page + 1) * ITEMS_PER_PAGE, episodes.length);
 
     // Lock Logic
-    const isEpisodeLocked = (index: number) => !session && index >= 5;
-    const isLocked = isEpisodeLocked(currentEpisode.chapterIndex);
+    const isEpisodeLocked = (index: number) => false; // FREE FOR ALL
+    const isLocked = false;
 
     // Mobile Episode Drawer State
     const [showMobileEpisodes, setShowMobileEpisodes] = useState(false);
