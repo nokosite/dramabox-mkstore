@@ -38,7 +38,7 @@ export default function Navbar() {
                     <div className="flex items-center gap-8">
                         {/* Mobile Menu Button - Hidden since we use Bottom Nav */}
                         <button
-                            className="hidden text-white p-1" // Changed md:hidden to hidden
+                            className="md:hidden text-white p-1"
                             onClick={() => setMobileMenuOpen(true)}
                         >
                             <Menu size={24} />
