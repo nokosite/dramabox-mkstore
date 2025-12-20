@@ -49,7 +49,7 @@ async function fetchFromApi(endpoint: string, params: Record<string, string> = {
   const url = new URL(baseUrl, isServer ? undefined : window.location.origin);
 
   // Default params
-  if (!params.lang) params.lang = "en";
+  if (!params.lang) params.lang = "id";
   if (!params.source) params.source = "dramabox"; // Default source
 
   Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
