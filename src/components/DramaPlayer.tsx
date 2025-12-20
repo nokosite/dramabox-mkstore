@@ -155,6 +155,100 @@ export default function DramaPlayer({
 
     if (!mounted) return <div className="min-h-screen bg-black" />; // Avoid hydration mismatch
 
+    // Playback State
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // HLS & Video Handling
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const src = getVideoSrc(currentEpisode);
+        let hls: Hls | null = null;
+
+        // Reset states
+        setIsLoading(true);
+        setIsPlaying(false);
+
+        const handleWaiting = () => setIsLoading(true);
+        const handleCanPlay = () => setIsLoading(false);
+        const handlePlaying = () => {
+            setIsLoading(false);
+            setIsPlaying(true);
+        };
+        const handlePause = () => setIsPlaying(false);
+
+        // Attach listeners
+        video.addEventListener("waiting", handleWaiting);
+        video.addEventListener("canplay", handleCanPlay);
+        video.addEventListener("playing", handlePlaying);
+        video.addEventListener("pause", handlePause);
+
+        // HLS Logic
+        if (Hls.isSupported() && src.endsWith(".m3u8")) {
+            hls = new Hls();
+            hls.loadSource(src);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(console.error);
+            });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            // Native HLS (Safari)
+            video.src = src;
+            video.addEventListener("loadedmetadata", () => {
+                video.play().catch(console.error);
+            });
+        } else {
+            // Standard MP4
+            video.src = src;
+            video.load();
+            video.play().catch(console.error);
+        }
+
+        return () => {
+            // Cleanup
+            video.removeEventListener("waiting", handleWaiting);
+            video.removeEventListener("canplay", handleCanPlay);
+            video.removeEventListener("playing", handlePlaying);
+            video.removeEventListener("pause", handlePause);
+            if (hls) hls.destroy();
+        };
+    }, [currentEpisode]);
+
+    const togglePlay = useCallback(() => {
+        if (!videoRef.current) return;
+        if (videoRef.current.paused) {
+            videoRef.current.play().catch(console.error);
+        } else {
+            videoRef.current.pause();
+        }
+    }, []);
+
+    // ... (rest of the component logic)
+
+    // Helper for visual feedback on mobile
+    const MobileOverlay = () => (
+        <div
+            className="absolute inset-0 z-10 flex items-center justify-center p-4"
+            onClick={togglePlay} // Clicking overlay toggles play
+        >
+            {/* Loading Spinner */}
+            {isLoading && (
+                <div className="w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
+            )}
+
+            {/* Play Button (Only show if NOT loading and paused) */}
+            {!isLoading && !isPlaying && !isLocked && (
+                <div className="w-16 h-16 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center animate-in zoom-in duration-200">
+                    <Play size={32} className="text-white ml-1" fill="currentColor" />
+                </div>
+            )}
+        </div>
+    );
+
+    if (!mounted) return <div className="min-h-screen bg-black" />; // Avoid hydration mismatch
+
     return (
         <div className="text-gray-200 selection:bg-blue-500/30">
 
@@ -191,6 +285,13 @@ export default function DramaPlayer({
                                         {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
                                         Your browser does not support the video tag.
                                     </video>
+
+                                    {/* Desktop Overlay for Loading/Play (Optional but good for UX) */}
+                                    {isLoading && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                                            <div className="w-10 h-10 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
+                                        </div>
+                                    )}
 
                                     {/* Lock Overlay */}
                                     {isLocked && (
@@ -270,8 +371,8 @@ export default function DramaPlayer({
                     className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none"
                 // Touch Handlers managed by Framer Motion Drag
                 >
-                    <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent">
-                        <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition">
+                    <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+                        <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition pointer-events-auto">
                             <ChevronRight size={28} className="rotate-180" />
                         </Link>
                         <h1 className="text-lg font-bold drop-shadow-md">Reels</h1>
@@ -300,6 +401,9 @@ export default function DramaPlayer({
                                     }
                                 }}
                             >
+                                {/* Overlay for Controls & Feedback */}
+                                <MobileOverlay />
+
                                 <video
                                     ref={videoRef}
                                     className={cn("w-full h-full object-contain", isLocked && "blur-md opacity-30")}
@@ -309,12 +413,8 @@ export default function DramaPlayer({
                                     controls={false}
                                     controlsList="nodownload"
                                     onContextMenu={(e) => e.preventDefault()}
-                                    onClick={() => {
-                                        if (videoRef.current?.paused) videoRef.current.play();
-                                        else videoRef.current?.pause();
-                                    }}
                                 >
-                                    {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
+                                    {/* Source handled by useEffect now */}
                                 </video>
 
                                 {isLocked && (
