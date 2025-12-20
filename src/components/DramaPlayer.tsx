@@ -11,6 +11,7 @@ import {
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Custom hook to detect mobile screen
 function useIsMobile() {
@@ -23,6 +24,24 @@ function useIsMobile() {
     }, []);
     return isMobile;
 }
+
+const variants = {
+    enter: (direction: number) => ({
+        y: direction > 0 ? "100%" : "-100%",
+        opacity: 0,
+        zIndex: 0
+    }),
+    center: {
+        y: 0,
+        opacity: 1,
+        zIndex: 1
+    },
+    exit: (direction: number) => ({
+        y: direction < 0 ? "100%" : "-100%",
+        opacity: 0,
+        zIndex: 0
+    })
+};
 
 interface DramaPlayerProps {
     initialEpisodes: Episode[];
@@ -104,64 +123,29 @@ export default function DramaPlayer({
     // Mock Social interactions
     const [isLiked, setIsLiked] = useState(false);
 
-    // Touch Handling (`useRef` is fine across renders)
-    const touchStart = useRef<number | null>(null);
-    const touchEnd = useRef<number | null>(null);
+    // Touch Handling - Replaced by Framer Motion Drag
     const minSwipeDistance = 50;
-
-    const onTouchStart = (e: React.TouchEvent) => {
-        touchEnd.current = null;
-        touchStart.current = e.targetTouches[0].clientY;
-    };
-
-    const onTouchMove = (e: React.TouchEvent) => {
-        touchEnd.current = e.targetTouches[0].clientY;
-    };
-
-    const onTouchEnd = () => {
-        if (!touchStart.current || !touchEnd.current) return;
-        const distance = touchStart.current - touchEnd.current;
-        const isUpSwipe = distance > minSwipeDistance;
-        const isDownSwipe = distance < -minSwipeDistance;
-        handleSwipe(isUpSwipe, isDownSwipe);
-    };
-
-    // Mouse Support
-    const onMouseDown = (e: React.MouseEvent) => {
-        touchEnd.current = null;
-        touchStart.current = e.clientY;
-    };
-
-    const onMouseMove = (e: React.MouseEvent) => {
-        e.preventDefault();
-        if (touchStart.current !== null) {
-            touchEnd.current = e.clientY;
-        }
-    };
-
-    const onMouseUp = () => {
-        if (!touchStart.current || !touchEnd.current) {
-            touchStart.current = null;
-            return;
-        }
-        const distance = touchStart.current - touchEnd.current;
-        const isUpSwipe = distance > minSwipeDistance;
-        const isDownSwipe = distance < -minSwipeDistance;
-        handleSwipe(isUpSwipe, isDownSwipe);
-        touchStart.current = null;
-        touchEnd.current = null;
-    };
+    const [direction, setDirection] = useState(0);
 
     const handleSwipe = (isUpSwipe: boolean, isDownSwipe: boolean) => {
         if (isUpSwipe) {
-            // Next Episode (Swipe Up)
+            // Next Episode (Swipe Up) -> Enter from Bottom (positive dir? No. Next is usually below. Swipe UP means move content UP. Next comes from BOTTOM.)
+            // So enters from 100%. Direction should be positive?
+            // Let's convention: Next = +1. Prev = -1.
+            // Swipe Up (Gesture) -> Go to Next. Content moves UP. Next content comes from BOTTOM.
+            // Enter variant: y: 100%. Exit variant: y: -100%.
+            // So if Direction = 1 (Next), Enter y=100%, Exit y=-100%.
+            setDirection(1);
             const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
             if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
                 handleEpisodeClick(episodes[currentIndex + 1]);
             }
         }
         if (isDownSwipe) {
-            // Prev Episode (Swipe Down)
+            // Prev Episode (Swipe Down) -> Go to Prev. Content moves DOWN. Prev content comes from TOP.
+            // Enter variant: y: -100%. Exit variant: y: 100%.
+            // So if Direction = -1 (Prev), Enter y=-100%, Exit y=100%.
+            setDirection(-1);
             const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
             if (currentIndex > 0) {
                 handleEpisodeClick(episodes[currentIndex - 1]);
@@ -283,9 +267,8 @@ export default function DramaPlayer({
             {/* ================= MOBILE LAYOUT (Only Render if Mobile) ================= */}
             {isMobile && (
                 <div
-                    className="fixed inset-0 z-[60] bg-black text-white flex flex-col touch-none select-none"
-                    onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-                    onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+                    className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none"
+                // Touch Handlers managed by Framer Motion Drag
                 >
                     <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent">
                         <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition">
@@ -294,58 +277,82 @@ export default function DramaPlayer({
                         <h1 className="text-lg font-bold drop-shadow-md">Reels</h1>
                     </div>
 
-                    <div className="flex-1 relative bg-[#0a0a0a] flex items-center justify-center">
-                        <video
-                            ref={videoRef}
-                            className={cn("w-full h-full object-contain", isLocked && "blur-md opacity-30")}
-                            poster={dramaCover}
-                            onEnded={handleVideoEnded}
-                            playsInline
-                            controls={false}
-                            controlsList="nodownload"
-                            onContextMenu={(e) => e.preventDefault()}
-                            onClick={() => {
-                                if (videoRef.current?.paused) videoRef.current.play();
-                                else videoRef.current?.pause();
-                            }}
-                        >
-                            {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
-                        </video>
+                    <div className="flex-1 relative bg-[#0a0a0a] overflow-hidden">
+                        <AnimatePresence initial={false} custom={direction} mode="popLayout">
+                            <motion.div
+                                key={currentEpisode.chapterId}
+                                custom={direction}
+                                variants={variants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                className="absolute inset-0 flex items-center justify-center"
+                                drag="y"
+                                dragConstraints={{ top: 0, bottom: 0 }}
+                                dragElastic={0.2}
+                                onDragEnd={(e, { offset, velocity }) => {
+                                    const swipe = offset.y;
+                                    if (swipe < -minSwipeDistance) {
+                                        handleSwipe(true, false); // Up
+                                    } else if (swipe > minSwipeDistance) {
+                                        handleSwipe(false, true); // Down
+                                    }
+                                }}
+                            >
+                                <video
+                                    ref={videoRef}
+                                    className={cn("w-full h-full object-contain", isLocked && "blur-md opacity-30")}
+                                    poster={dramaCover}
+                                    onEnded={handleVideoEnded}
+                                    playsInline
+                                    controls={false}
+                                    controlsList="nodownload"
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                        if (videoRef.current?.paused) videoRef.current.play();
+                                        else videoRef.current?.pause();
+                                    }}
+                                >
+                                    {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
+                                </video>
 
-                        {isLocked && (
-                            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-8 text-center">
-                                <Lock size={48} className="text-white/50 mb-4" />
-                                <h3 className="text-xl font-bold mb-2">Episode Locked</h3>
-                                <p className="text-sm text-gray-400 mb-6">Login to continue watching</p>
-                                <button onClick={() => signIn("google")} className="bg-blue-600 text-white px-8 py-3 font-bold active:scale-95 transition">
-                                    Login Now
-                                </button>
-                            </div>
-                        )}
+                                {isLocked && (
+                                    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-8 text-center bg-black/50 backdrop-blur-sm">
+                                        <Lock size={48} className="text-white/50 mb-4" />
+                                        <h3 className="text-xl font-bold mb-2">Episode Locked</h3>
+                                        <p className="text-sm text-gray-400 mb-6">Login to continue watching</p>
+                                        <button onClick={() => signIn("google")} className="bg-blue-600 text-white px-8 py-3 font-bold active:scale-95 transition">
+                                            Login Now
+                                        </button>
+                                    </div>
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
 
-                        <div className="absolute right-4 bottom-32 z-20 flex flex-col items-center gap-6">
+                        <div className="absolute right-4 bottom-32 z-20 flex flex-col items-center gap-6 pointer-events-auto">
                             <div className="flex flex-col items-center gap-1">
-                                <button onClick={() => setIsLiked(!isLiked)} className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition">
+                                <button onClick={() => setIsLiked(!isLiked)} className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition rounded-full">
                                     <Heart size={28} fill={isLiked ? "#ef4444" : "none"} stroke={isLiked ? "#ef4444" : "currentColor"} />
                                 </button>
                                 <span className="text-xs font-medium drop-shadow-md">{isLiked ? "2.5k" : "2.4k"}</span>
                             </div>
                             <div className="flex flex-col items-center gap-1">
-                                <button className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition">
+                                <button className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition rounded-full">
                                     <Share2 size={28} />
                                 </button>
                                 <span className="text-xs font-medium drop-shadow-md">Share</span>
                             </div>
                         </div>
 
-                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 bg-gradient-to-t from-black/80 to-transparent">
+                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
                             <div className="mb-3">
                                 <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle || "Short Drama"}</h2>
                                 <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
                                     Episode {currentEpisode.chapterIndex + 1} - Watch this amazing drama moment!
                                 </p>
                             </div>
-                            <button onClick={toggleMobileEpisodes} className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors">
+                            <button onClick={toggleMobileEpisodes} className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors rounded-lg">
                                 <span className="flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                                     Watch More ({episodes.length})
