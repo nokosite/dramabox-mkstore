@@ -45,7 +45,7 @@ export default function Navbar() {
                         </button>
 
                         <Link href="/" className="flex items-center gap-2 group">
-                            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                            <div className="w-8 h-8 bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
                                 M
                             </div>
                             <span className="text-xl font-bold tracking-tight text-white">MKX</span>
@@ -57,25 +57,21 @@ export default function Navbar() {
                             <Link href="#" className="hover:text-white transition">Aplikasi</Link>
                             <Link href="#" className="hover:text-white transition">Aplikasi</Link>
 
-                            {/* Source Switcher */}
-                            <div className="relative group">
-                                <button className="flex items-center gap-1 hover:text-white transition uppercase font-bold text-xs tracking-wider border border-white/20 px-2 py-1 rounded-md">
-                                    {source === "goodshort" ? "GoodShort" : "Dramabox"}
-                                </button>
-                                <div className="absolute top-full left-0 mt-2 w-32 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 hidden group-hover:block">
-                                    <button
-                                        onClick={() => router.push("/?source=dramabox")}
-                                        className={`block w-full text-left px-4 py-2 text-sm ${source !== "goodshort" ? "text-blue-500 font-bold" : "text-gray-400 hover:text-white"}`}
-                                    >
-                                        Dramabox
-                                    </button>
-                                    <button
-                                        onClick={() => router.push("/?source=goodshort")}
-                                        className={`block w-full text-left px-4 py-2 text-sm ${source === "goodshort" ? "text-purple-500 font-bold" : "text-gray-400 hover:text-white"}`}
-                                    >
-                                        GoodShort
-                                    </button>
-                                </div>
+                            {/* Source Switcher (Filter Pills) */}
+                            <div className="flex items-center border border-white/20 bg-[#1a1a1a]">
+                                <Link
+                                    href="/?source=dramabox"
+                                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition inline-block ${source !== "goodshort" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}
+                                >
+                                    Dramabox
+                                </Link>
+                                <div className="w-[1px] h-4 bg-white/10"></div>
+                                <Link
+                                    href="/?source=goodshort"
+                                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition inline-block ${source === "goodshort" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"}`}
+                                >
+                                    GoodShort
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -86,7 +82,7 @@ export default function Navbar() {
                             <input
                                 type="text"
                                 placeholder="Mencari"
-                                className="bg-[#1a1a1a] border border-white/10 rounded-full py-1.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 w-48 transition-all"
+                                className="bg-[#1a1a1a] border border-white/10 py-1.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 w-48 transition-all"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={handleSearch}
@@ -99,7 +95,7 @@ export default function Navbar() {
                                 {/* User Dropdown Trigger */}
                                 <button
                                     onClick={() => setShowDropdown(!showDropdown)}
-                                    className="w-8 h-8 rounded-full overflow-hidden border border-white/20 relative focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                    className="w-8 h-8 overflow-hidden border border-white/20 relative focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                                 >
                                     {session.user?.image ? (
                                         <Image
@@ -118,7 +114,7 @@ export default function Navbar() {
 
                                 {/* Dropdown Menu */}
                                 {showDropdown && (
-                                    <div className="absolute top-12 right-0 w-48 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                                    <div className="absolute top-12 right-0 w-48 bg-[#1a1a1a] border border-white/10 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
                                         <div className="px-4 py-2 border-b border-white/5 mb-2">
                                             <p className="text-sm font-bold text-white truncate">{session.user?.name}</p>
                                             <p className="text-xs text-gray-400 truncate">{session.user?.email}</p>
@@ -146,7 +142,7 @@ export default function Navbar() {
                         ) : (
                             <button
                                 onClick={() => setShowLoginModal(true)}
-                                className="w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-white/10 transition text-white"
+                                className="w-8 h-8 bg-[#1a1a1a] flex items-center justify-center hover:bg-white/10 transition text-white"
                                 title="Sign In with Google"
                             >
                                 <User size={18} />
@@ -175,6 +171,28 @@ export default function Navbar() {
 
                             <Link href="#" onClick={() => setMobileMenuOpen(false)} className="hover:text-white">Aplikasi</Link>
                             <Link href="#" onClick={() => setMobileMenuOpen(false)} className="hover:text-white">Layanan</Link>
+
+                            {/* Mobile Source Switcher */}
+                            <div className="flex items-center gap-4 pt-4 border-t border-white/10">
+                                <span className="text-sm text-gray-400">Source:</span>
+                                <div className="flex items-center border border-white/20 bg-[#1a1a1a]">
+                                    <Link
+                                        href="/?source=dramabox"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${source !== "goodshort" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}
+                                    >
+                                        Dramabox
+                                    </Link>
+                                    <div className="w-[1px] h-4 bg-white/10"></div>
+                                    <Link
+                                        href="/?source=goodshort"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${source === "goodshort" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"}`}
+                                    >
+                                        GoodShort
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Mobile Search */}
@@ -183,7 +201,7 @@ export default function Navbar() {
                                 <input
                                     type="text"
                                     placeholder="Cari drama..."
-                                    className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-all"
+                                    className="w-full bg-[#1a1a1a] border border-white/10 py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-all"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => {
@@ -203,11 +221,11 @@ export default function Navbar() {
             {/* Login Modal */}
             {showLoginModal && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in-95 duration-200">
                         {/* Close Button */}
                         <button
                             onClick={() => setShowLoginModal(false)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition bg-white/5 rounded-full p-1"
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition bg-white/5 p-1"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                         </button>
@@ -219,7 +237,7 @@ export default function Navbar() {
 
                         <button
                             onClick={() => signIn("google")}
-                            className="w-full bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-medium py-3 px-4 rounded-lg transition flex items-center justify-center gap-3 group"
+                            className="w-full bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-medium py-3 px-4 transition flex items-center justify-center gap-3 group"
                         >
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
                                 <path

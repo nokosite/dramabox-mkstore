@@ -21,14 +21,15 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
         <section className="container mx-auto px-4 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left: Main Highlight (Large) */}
-                <div className="lg:col-span-2 relative bg-[#1a1a1a] rounded-xl overflow-hidden group">
+                <div className="lg:col-span-2 relative bg-[#1a1a1a] overflow-hidden group">
                     <Link
                         href={{
                             pathname: '/play',
                             query: {
                                 bookId: mainDrama.bookId,
                                 title: mainDrama.bookName,
-                                cover: mainDrama.coverWap
+                                cover: mainDrama.coverWap,
+                                source: mainDrama.source || 'dramabox'
                             }
                         }}
                         className="flex flex-col md:flex-row h-full"
@@ -37,7 +38,7 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
                         <div className="relative w-full md:w-[45%] aspect-[3/4] md:aspect-auto">
                             <Image
                                 src={mainDrama.coverWap || "https://placehold.co/400x600"}
-                                alt={mainDrama.bookName}
+                                alt={mainDrama.bookName || "Drama Poster"}
                                 fill
                                 priority={true}
                                 sizes="(max-width: 768px) 100vw, 66vw"
@@ -63,13 +64,13 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
 
                             <div className="flex flex-wrap gap-2 mb-8">
                                 {mainDrama.tags?.slice(0, 3).map(tag => (
-                                    <span key={tag} className="px-3 py-1 bg-[#2a2a2a] text-gray-300 text-xs rounded-full">
+                                    <span key={tag} className="px-3 py-1 bg-[#2a2a2a] text-gray-300 text-xs">
                                         {tag}
                                     </span>
                                 ))}
                             </div>
 
-                            <button className="self-start flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold transition active:scale-95">
+                            <button className="self-start flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold transition active:scale-95">
                                 <Play fill="currentColor" size={18} /> Putar Sekarang
                             </button>
                         </div>
@@ -83,15 +84,15 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
                             key={drama.bookId}
                             href={{
                                 pathname: '/play',
-                                query: { bookId: drama.bookId, title: drama.bookName, cover: drama.coverWap }
+                                query: { bookId: drama.bookId, title: drama.bookName, cover: drama.coverWap, source: drama.source || 'dramabox' }
                             }}
-                            className="flex-1 relative bg-[#1a1a1a] rounded-xl overflow-hidden group flex"
+                            className="flex-1 relative bg-[#1a1a1a] overflow-hidden group flex"
                         >
                             {/* Image */}
                             <div className="relative w-2/5 aspect-[3/4]">
                                 <Image
                                     src={drama.coverWap || "https://placehold.co/300x400"}
-                                    alt={drama.bookName}
+                                    alt={drama.bookName || "Drama Thumbnail"}
                                     fill
                                     sizes="(max-width: 768px) 33vw, 15vw"
                                     className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -116,9 +117,9 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
             </div>
 
             {/* Banner */}
-            <div className="mt-8 rounded-xl bg-blue-50/5 border border-blue-500/20 p-4 flex items-center justify-between">
+            <div className="mt-8 bg-blue-50/5 border border-blue-500/20 p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-16 bg-gray-800 rounded overflow-hidden relative hidden sm:block">
+                    <div className="w-12 h-16 bg-gray-800 overflow-hidden relative hidden sm:block">
                         <div className="absolute inset-0 bg-blue-900/50 flex items-center justify-center">
                             <span className="text-xs font-bold text-blue-200">APP</span>
                         </div>
@@ -127,7 +128,7 @@ export default function FeaturedSection({ dramas }: FeaturedSectionProps) {
                         Langganan push drama populer, Jangan lewatkan drama baru apa pun.
                     </p>
                 </div>
-                <button className="px-6 py-2 bg-white text-blue-600 text-sm font-bold rounded-full hover:bg-gray-100 transition">
+                <button className="px-6 py-2 bg-white text-blue-600 text-sm font-bold hover:bg-gray-100 transition">
                     Ikuti
                 </button>
             </div>

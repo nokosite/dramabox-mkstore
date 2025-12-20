@@ -90,7 +90,7 @@ function SearchContent() {
             <div className="pt-24 px-4 container mx-auto max-w-4xl">
                 {/* Search Header & Input */}
                 <div className="sticky top-16 z-30 bg-[#121212] pb-4">
-                    <div className="flex items-center gap-3 bg-[#1a1a1a] border border-white/10 rounded-full px-4 py-3 shadow-lg focus-within:border-blue-500 transition-all">
+                    <div className="flex items-center gap-3 bg-[#1a1a1a] border border-white/10 px-4 py-3 shadow-lg focus-within:border-blue-500 transition-all">
                         <Link href="/" className="text-gray-400 hover:text-white">
                             <ArrowLeft size={20} />
                         </Link>
@@ -120,7 +120,7 @@ function SearchContent() {
                     {loading ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
-                                <div key={i} className="aspect-[3/4] bg-gray-800 rounded-xl animate-pulse" />
+                                <div key={i} className="aspect-[3/4] bg-gray-800 animate-pulse" />
                             ))}
                         </div>
                     ) : query ? (
@@ -131,7 +131,7 @@ function SearchContent() {
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 text-center">
-                                <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                                <div className="w-20 h-20 bg-gray-800 flex items-center justify-center mb-4 text-gray-400">
                                     <SearchIcon size={32} />
                                 </div>
                                 <h3 className="text-xl font-bold mb-2">No results found</h3>
@@ -151,9 +151,9 @@ function SearchContent() {
                                             <Link
                                                 key={drama.bookId}
                                                 href={`/play?bookId=${drama.bookId}&title=${encodeURIComponent(drama.bookName)}&cover=${encodeURIComponent(drama.coverWap)}`}
-                                                className="flex items-center gap-3 bg-[#1a1a1a] p-3 rounded-xl hover:bg-[#222] transition group"
+                                                className="flex items-center gap-3 bg-[#1a1a1a] p-3 hover:bg-[#222] transition group"
                                             >
-                                                <div className="relative w-12 h-16 flex-shrink-0 rounded-md overflow-hidden bg-gray-800">
+                                                <div className="relative w-12 h-16 flex-shrink-0 overflow-hidden bg-gray-800">
                                                     <Image src={drama.coverWap} alt={drama.bookName} fill className="object-cover group-hover:scale-110 transition duration-500" />
                                                 </div>
                                                 <div className="overflow-hidden">
@@ -174,7 +174,7 @@ function SearchContent() {
                                         <button
                                             key={tag}
                                             onClick={() => handleSearch(tag)}
-                                            className="px-4 py-2 bg-[#1a1a1a] border border-white/5 rounded-full text-sm hover:bg-white hover:text-black transition"
+                                            className="px-4 py-2 bg-[#1a1a1a] border border-white/5 text-sm hover:bg-white hover:text-black transition"
                                         >
                                             {tag}
                                         </button>

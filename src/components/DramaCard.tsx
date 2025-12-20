@@ -16,16 +16,17 @@ export default function DramaCard({ drama, className }: DramaCardProps) {
                 query: {
                     bookId: drama.bookId,
                     title: drama.bookName,
-                    cover: drama.coverWap
+                    cover: drama.coverWap,
+                    source: drama.source || 'dramabox'
                 }
             }}
-            className={`block group relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-900 cursor-pointer active:scale-95 transition-transform duration-200 ${className}`}
+            className={`block group relative aspect-[3/4] overflow-hidden bg-gray-900 cursor-pointer active:scale-95 transition-transform duration-200 ${className}`}
         >
             {/* Image with Zoom Effect */}
             <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
                 <Image
                     src={drama.coverWap || "https://placehold.co/300x400/1a1a1a/666666?text=No+Image"}
-                    alt={drama.bookName || "Untitled Drama"}
+                    alt={drama.bookName || "Drama Cover"}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     className="object-cover opacity-90 transition-opacity group-hover:opacity-100"
@@ -39,7 +40,7 @@ export default function DramaCard({ drama, className }: DramaCardProps) {
             <div className="absolute inset-0 flex flex-col justify-end p-5 transition-all duration-300 group-hover:translate-y-[-10px]">
                 {/* Play Button Overlay (Hidden by default, shows on hover) */}
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-50 opacity-0 transition-all duration-500 group-hover:scale-100 group-hover:opacity-100">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white shadow-xl">
+                    <div className="flex h-16 w-16 items-center justify-center bg-white/20 backdrop-blur-md border border-white/30 text-white shadow-xl">
                         <Play fill="currentColor" className="ml-1 h-8 w-8" />
                     </div>
                 </div>
@@ -47,7 +48,7 @@ export default function DramaCard({ drama, className }: DramaCardProps) {
                 {/* Tags */}
                 <div className="mb-2 flex flex-wrap gap-1">
                     {drama.tags?.slice(0, 2).map((tag) => (
-                        <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                        <span key={tag} className="bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
                             {tag}
                         </span>
                     ))}

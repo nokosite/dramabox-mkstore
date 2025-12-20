@@ -194,7 +194,7 @@ export default function DramaPlayer({
                             {/* Left Column: Player & Info */}
                             <div className="lg:col-span-2 space-y-6">
                                 {/* Player Wrapper */}
-                                <div className="relative w-full bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800 aspect-video group">
+                                <div className="relative w-full bg-black overflow-hidden shadow-2xl border border-gray-800 aspect-video group">
                                     <video
                                         ref={videoRef}
                                         controls={!isLocked}
@@ -212,8 +212,8 @@ export default function DramaPlayer({
                                     {/* Lock Overlay */}
                                     {isLocked && (
                                         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-black/40">
-                                            <div className="bg-black/80 backdrop-blur-md p-8 rounded-2xl border border-white/10 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
-                                                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                                            <div className="bg-black/80 backdrop-blur-md p-8 border border-white/10 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
+                                                <div className="w-16 h-16 bg-white/10 flex items-center justify-center mb-6 mx-auto">
                                                     <Lock className="w-8 h-8 text-white" />
                                                 </div>
                                                 <h3 className="text-2xl font-bold text-white mb-2">Login Required</h3>
@@ -221,7 +221,7 @@ export default function DramaPlayer({
                                                     Login untuk melanjutkan menonton Episode {currentEpisode.chapterIndex + 1} ke atas.
                                                     <br /><span className="text-yellow-500 text-xs">Episode 1-5 GRATIS!</span>
                                                 </p>
-                                                <button onClick={() => signIn("google")} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition flex items-center justify-center gap-2">
+                                                <button onClick={() => signIn("google")} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 transition flex items-center justify-center gap-2">
                                                     <Play size={18} fill="currentColor" />
                                                     <span>Login untuk Menonton</span>
                                                 </button>
@@ -247,7 +247,7 @@ export default function DramaPlayer({
 
                             {/* Right Column: Sidebar Episode List */}
                             <div className="lg:col-span-1">
-                                <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 overflow-hidden sticky top-24">
+                                <div className="bg-[#1a1a1a] border border-gray-800 overflow-hidden sticky top-24">
                                     <div className="p-4 border-b border-gray-800 bg-[#222]">
                                         <h2 className="font-bold text-white text-lg">Episodes <span className="text-gray-500 text-sm font-normal">({episodes.length})</span></h2>
                                     </div>
@@ -255,7 +255,7 @@ export default function DramaPlayer({
                                     {totalPages > 1 && (
                                         <div className="flex items-center gap-2 p-3 overflow-x-auto border-b border-gray-800 no-scrollbar">
                                             {Array.from({ length: totalPages }).map((_, idx) => (
-                                                <button key={idx} onClick={() => setPage(idx)} className={cn("px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors", page === idx ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white")}>
+                                                <button key={idx} onClick={() => setPage(idx)} className={cn("px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors", page === idx ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white")}>
                                                     {idx * ITEMS_PER_PAGE + 1} - {Math.min((idx + 1) * ITEMS_PER_PAGE, episodes.length)}
                                                 </button>
                                             ))}
@@ -267,7 +267,7 @@ export default function DramaPlayer({
                                             const isActive = currentEpisode.chapterId === ep.chapterId;
                                             const isLockedItem = isEpisodeLocked(ep.chapterIndex);
                                             return (
-                                                <button key={ep.chapterId} onClick={() => handleEpisodeClick(ep)} className={cn("aspect-square rounded flex items-center justify-center text-xs font-medium transition-colors relative", isActive ? "bg-blue-600 text-white" : "bg-[#252525] text-gray-400 hover:bg-[#333] hover:text-white", isLockedItem && "opacity-75")}>
+                                                <button key={ep.chapterId} onClick={() => handleEpisodeClick(ep)} className={cn("aspect-square flex items-center justify-center text-xs font-medium transition-colors relative", isActive ? "bg-blue-600 text-white" : "bg-[#252525] text-gray-400 hover:bg-[#333] hover:text-white", isLockedItem && "opacity-75")}>
                                                     {isLockedItem ? <Lock size={12} className="text-yellow-500" /> : ep.chapterIndex + 1}
                                                 </button>
                                             );
@@ -289,7 +289,7 @@ export default function DramaPlayer({
                     onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
                 >
                     <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent">
-                        <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition">
+                        <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition">
                             <ChevronRight size={28} className="rotate-180" />
                         </Link>
                         <h1 className="text-lg font-bold drop-shadow-md">Reels</h1>
@@ -318,7 +318,7 @@ export default function DramaPlayer({
                                 <Lock size={48} className="text-white/50 mb-4" />
                                 <h3 className="text-xl font-bold mb-2">Episode Locked</h3>
                                 <p className="text-sm text-gray-400 mb-6">Login to continue watching</p>
-                                <button onClick={() => signIn("google")} className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold active:scale-95 transition">
+                                <button onClick={() => signIn("google")} className="bg-blue-600 text-white px-8 py-3 font-bold active:scale-95 transition">
                                     Login Now
                                 </button>
                             </div>
@@ -326,13 +326,13 @@ export default function DramaPlayer({
 
                         <div className="absolute right-4 bottom-32 z-20 flex flex-col items-center gap-6">
                             <div className="flex flex-col items-center gap-1">
-                                <button onClick={() => setIsLiked(!isLiked)} className="p-3 bg-black/40 backdrop-blur-sm rounded-full active:scale-90 transition">
+                                <button onClick={() => setIsLiked(!isLiked)} className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition">
                                     <Heart size={28} fill={isLiked ? "#ef4444" : "none"} stroke={isLiked ? "#ef4444" : "currentColor"} />
                                 </button>
                                 <span className="text-xs font-medium drop-shadow-md">{isLiked ? "2.5k" : "2.4k"}</span>
                             </div>
                             <div className="flex flex-col items-center gap-1">
-                                <button className="p-3 bg-black/40 backdrop-blur-sm rounded-full active:scale-90 transition">
+                                <button className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition">
                                     <Share2 size={28} />
                                 </button>
                                 <span className="text-xs font-medium drop-shadow-md">Share</span>
@@ -346,7 +346,7 @@ export default function DramaPlayer({
                                     Episode {currentEpisode.chapterIndex + 1} - Watch this amazing drama moment!
                                 </p>
                             </div>
-                            <button onClick={toggleMobileEpisodes} className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 rounded-lg flex items-center justify-between px-3 transition-colors">
+                            <button onClick={toggleMobileEpisodes} className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors">
                                 <span className="flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                                     Watch More ({episodes.length})
@@ -359,7 +359,7 @@ export default function DramaPlayer({
                     {showMobileEpisodes && (
                         <div className="absolute inset-0 z-50">
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileEpisodes(false)} />
-                            <div className="absolute bottom-0 left-0 w-full bg-[#121212] rounded-t-2xl max-h-[70vh] flex flex-col animate-in slide-in-from-bottom duration-300 border-t border-white/10">
+                            <div className="absolute bottom-0 left-0 w-full bg-[#121212] max-h-[70vh] flex flex-col animate-in slide-in-from-bottom duration-300 border-t border-white/10">
                                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                                     <h3 className="font-bold text-lg">Episodes</h3>
                                     <button onClick={() => setShowMobileEpisodes(false)} className="p-1 text-gray-400 hover:text-white"><X size={24} /></button>
@@ -370,7 +370,7 @@ export default function DramaPlayer({
                                             const isActive = currentEpisode.chapterId === ep.chapterId;
                                             const isLockedItem = isEpisodeLocked(ep.chapterIndex);
                                             return (
-                                                <button key={ep.chapterId} onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }} className={cn("aspect-square rounded-lg flex items-center justify-center text-sm font-bold transition-all relative border border-white/5", isActive ? "bg-blue-600 text-white border-blue-500" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white", isLockedItem && "opacity-70")}>
+                                                <button key={ep.chapterId} onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }} className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border border-white/5", isActive ? "bg-blue-600 text-white border-blue-500" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white", isLockedItem && "opacity-70")}>
                                                     {isLockedItem ? <Lock size={14} className="text-yellow-500" /> : ep.chapterIndex + 1}
                                                 </button>
                                             );

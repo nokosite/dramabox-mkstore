@@ -29,7 +29,24 @@ const API_KEY = process.env.API_SECRET || "";
 
 // Helper for Centralized Fetching
 async function fetchFromApi(endpoint: string, params: Record<string, string> = {}) {
-  const url = new URL(`${API_BASE}/api${endpoint}`);
+  const isServer = typeof window === "undefined";
+
+  // Construct Base URL:
+  // Server: Direct to External API (Fastest)
+  // Client: Via Internal Proxy (Avoids CORS)
+  // Proxy Route: /api/proxy/[endpoint] -> forwards to [API_BASE]/api/[endpoint]
+
+  let baseUrl;
+  if (isServer) {
+    baseUrl = `${API_BASE}/api${endpoint}`;
+  } else {
+    // Client-side proxy URL construction
+    // Endpoint usually starts with slash, e.g., /dramabox/home
+    // We want /api/proxy/dramabox/home
+    baseUrl = `/api/proxy${endpoint}`;
+  }
+
+  const url = new URL(baseUrl, isServer ? undefined : window.location.origin);
 
   // Default params
   if (!params.lang) params.lang = "en";
@@ -38,11 +55,18 @@ async function fetchFromApi(endpoint: string, params: Record<string, string> = {
   Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
 
   try {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json"
+    };
+
+    // Only add API Key server-side.
+    // Client-side, the Proxy adds it!
+    if (isServer) {
+      headers["x-api-key"] = API_KEY;
+    }
+
     const res = await fetch(url.toString(), {
-      headers: {
-        "x-api-key": API_KEY,
-        "Content-Type": "application/json"
-      },
+      headers,
       next: { revalidate: 3600 } // Cache for 1 hour
     });
 
@@ -72,14 +96,15 @@ function mapDramaboxItem(item: any): Drama {
 }
 
 // GoodShort structure might differ, simplified mapping for now
+// GoodShort structure from Project 27 analysis
+// item is from data.bookList[].items[]
 function mapGoodshortItem(item: any): Drama {
-  // Adaptation based on typical GoodShort fields (to be verified)
   return {
     bookId: item.bookId || item.id,
-    bookName: item.bookName || item.title,
-    coverWap: item.cover || item.coverUrl,
-    introduction: item.introduction || item.intro,
-    chapterCount: item.chapterCount || item.episodesCount,
+    bookName: item.bookName || item.title || item.seoBookName,
+    coverWap: item.bannerUrl || item.coverUrl || item.cover || "https://placehold.co/300x400?text=No+Cover",
+    introduction: item.introduction || item.intro || "",
+    chapterCount: item.chapterCount || 0,
     source: "goodshort"
   };
 }
@@ -98,9 +123,13 @@ export async function getForYouDramas(source: "dramabox" | "goodshort" = "dramab
     list = json.data.smallData || [];
     return list.map(mapDramaboxItem);
   } else {
-    // GoodShort structure from Project 27 analysis
-    list = json.data.bookList || json.data || [];
-    return list.map(mapGoodshortItem);
+    // GoodShort structure: data.bookList is an array of sections (Banner, Trending, etc)
+    // We want to extract items from these sections
+    const sections = json.data?.bookList || [];
+    // Flatten all items from all sections for "For You"
+    // Or just pick specific sections if we knew their IDs. For now, grab all.
+    const allItems = sections.flatMap((sec: any) => sec.items || []);
+    return allItems.map(mapGoodshortItem);
   }
 }
 
@@ -112,9 +141,11 @@ export async function getTrendingDramas(source: "dramabox" | "goodshort" = "dram
     const list = json.data.bigList || [];
     return list.map(mapDramaboxItem);
   } else {
-    // Fallback for Goodshort (maybe they don't have bigList, use normal list)
-    const list = json.data.bookList || [];
-    return list.map(mapGoodshortItem);
+    // GoodShort Trending: Use the first non-banner section or just the second section?
+    // Let's rely on the same structure for now, maybe slice the list differently
+    const sections = json.data?.bookList || [];
+    const allItems = sections.flatMap((sec: any) => sec.items || []);
+    return allItems.slice(0, 10).map(mapGoodshortItem);
   }
 }
 
@@ -125,7 +156,7 @@ export async function getLatestDramas(source: "dramabox" | "goodshort" = "dramab
     const list = json?.data?.bookList || [];
     return list.map(mapDramaboxItem);
   } else {
-    // Goodshort Latest logic (placeholder)
+    // Goodshort Latest
     return getForYouDramas("goodshort");
   }
 }
@@ -151,16 +182,17 @@ export async function getDramaEpisodes(bookId: string, source: "dramabox" | "goo
     }));
   } else {
     // GoodShort Episode Mapping
-    const chapters = json.data.chapterList || [];
+    // API returns 'chapterVoList', video is 'm3u8Path'
+    const chapters = json.data.chapterVoList || json.data.chapterList || [];
     return chapters.map((ch: any) => ({
       chapterId: ch.id,
       chapterIndex: ch.index,
       chapterName: ch.name,
-      isCharge: 0, // Assume free for now
+      isCharge: ch.price > 0 ? 1 : 0,
       cdnList: [{
         videoPathList: [{
           quality: 720,
-          videoPath: ch.url || "", // Verify field name
+          videoPath: ch.m3u8Path || ch.url || "",
           isDefault: 1
         }]
       }]
@@ -175,7 +207,8 @@ export async function searchDramas(query: string, source: "dramabox" | "goodshor
     const list = json?.data?.list || [];
     return list.map(mapDramaboxItem);
   } else {
-    const list = json?.data || [];
+    const data = json?.data || {};
+    const list = [...(data.topList || []), ...(data.bottomList || [])];
     return list.map(mapGoodshortItem);
   }
 }
