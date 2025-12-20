@@ -4,9 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Hls from "hls.js";
 import { Episode } from "@/lib/api";
 import {
-    Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings,
-    ChevronLeft, FastForward, MessageSquare, Heart, Share2, AlertCircle, X, Lock,
-    ChevronRight, Star, Home
+    Play, Pause, Heart, Share2, X, Lock,
+    ChevronRight, Star
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
@@ -24,6 +23,167 @@ function useIsMobile() {
     }, []);
     return isMobile;
 }
+
+// --- SUB-COMPONENT: Single Video Instance ---
+// Isolates refs and HLS state to prevent collisions during animations
+interface VideoPlayerProps {
+    src: string;
+    poster?: string;
+    isLocked: boolean;
+    onEnded?: () => void;
+    className?: string;
+    isMobile?: boolean; // Controls overlay style
+}
+
+function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: VideoPlayerProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    // HLS & Video Logic
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        let hls: Hls | null = null;
+        let isMounted = true;
+
+        // Reset states on mount (new src)
+        setIsLoading(true);
+        setIsPlaying(false);
+
+        const handleWaiting = () => { if (isMounted) setIsLoading(true); };
+        const handleCanPlay = () => { if (isMounted) setIsLoading(false); };
+        const handlePlaying = () => {
+            if (isMounted) {
+                setIsLoading(false);
+                setIsPlaying(true);
+            }
+        };
+        const handlePause = () => { if (isMounted) setIsPlaying(false); };
+
+        video.addEventListener("waiting", handleWaiting);
+        video.addEventListener("canplay", handleCanPlay);
+        video.addEventListener("playing", handlePlaying);
+        video.addEventListener("pause", handlePause);
+
+        const initVideo = async () => {
+            try {
+                // Robust Check: includes() for query params
+                if (Hls.isSupported() && src && src.includes(".m3u8")) {
+                    hls = new Hls({
+                        debug: false,
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                    });
+                    hls.loadSource(src);
+                    hls.attachMedia(video);
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(() => { });
+                    });
+
+                    // Auto-Recovery Logic
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    hls?.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    hls?.recoverMediaError();
+                                    break;
+                                default:
+                                    hls?.destroy();
+                                    break;
+                            }
+                        }
+                    });
+
+                } else if (video && video.canPlayType("application/vnd.apple.mpegurl")) {
+                    video.src = src;
+                    video.addEventListener("loadedmetadata", () => {
+                        video.play().catch(() => { });
+                    }, { once: true });
+                } else if (video) {
+                    video.src = src;
+                    video.load();
+                    video.play().catch(() => { });
+                }
+            } catch (e) {
+                console.error("Video Init Error", e);
+            }
+        };
+
+        if (src) initVideo();
+
+        return () => {
+            isMounted = false;
+            if (video) { // Check if ref still exists (cleanup)
+                video.removeEventListener("waiting", handleWaiting);
+                video.removeEventListener("canplay", handleCanPlay);
+                video.removeEventListener("playing", handlePlaying);
+                video.removeEventListener("pause", handlePause);
+            }
+            if (hls) hls.destroy();
+        };
+    }, [src]);
+
+    const togglePlay = () => {
+        if (!videoRef.current) return;
+        if (videoRef.current.paused) videoRef.current.play().catch(() => { });
+        else videoRef.current.pause();
+    };
+
+    return (
+        <div className="relative w-full h-full group" onClick={togglePlay}>
+            {/* Video Element */}
+            <video
+                ref={videoRef}
+                className={cn("w-full h-full object-contain bg-black", isLocked && "blur-sm opacity-50", className)}
+                poster={poster}
+                playsInline
+                controls={!isMobile && !isLocked} // Native controls on Desktop only
+                controlsList="nodownload"
+                onContextMenu={(e) => e.preventDefault()}
+                onEnded={onEnded}
+            />
+
+            {/* Custom Overlay (Mobile & Desktop Loading) */}
+            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                {/* Pointer events none allows click through to video/div for toggle */}
+
+                {isLoading && (
+                    <div className="w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
+                )}
+
+                {/* Mobile Play Button - Explicit Feedback */}
+                {isMobile && !isLoading && !isPlaying && !isLocked && (
+                    <div className="w-16 h-16 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center animate-in zoom-in duration-200">
+                        <Play size={32} className="text-white ml-1" fill="currentColor" />
+                    </div>
+                )}
+            </div>
+
+            {/* Lock Overlay */}
+            {isLocked && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-black/40 pointer-events-auto">
+                    {/* Lock UI content... reusing simplified version for reuse */}
+                    <div className="bg-black/80 backdrop-blur-md p-6 border border-white/10 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
+                        <Lock className="w-8 h-8 text-white mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-white mb-2">Login Required</h3>
+                        <button onClick={() => signIn("google")} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 mt-4 transition flex items-center justify-center gap-2">
+                            <span>Login to Watch</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+// --- MAIN COMPONENT ---
 
 const variants = {
     enter: (direction: number) => ({
@@ -58,10 +218,9 @@ export default function DramaPlayer({
 }: DramaPlayerProps) {
     const [mounted, setMounted] = useState(false);
     const isMobile = useIsMobile();
-    const videoRef = useRef<HTMLVideoElement>(null);
     const { data: session } = useSession();
 
-    // Sort episodes by index
+    // Episodes
     const episodes = [...initialEpisodes].sort((a, b) => a.chapterIndex - b.chapterIndex);
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(episodes[0]);
 
@@ -71,11 +230,7 @@ export default function DramaPlayer({
     const totalPages = Math.ceil(episodes.length / ITEMS_PER_PAGE);
     const currentEpisodesList = episodes.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
-    // Playback State
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Mobile Episode Drawer State
+    // Mobile Drawer
     const [showMobileEpisodes, setShowMobileEpisodes] = useState(false);
     const toggleMobileEpisodes = () => setShowMobileEpisodes(!showMobileEpisodes);
 
@@ -84,9 +239,11 @@ export default function DramaPlayer({
     const minSwipeDistance = 50;
     const [direction, setDirection] = useState(0);
 
-    // Lock Logic (Static)
+    // Lock Logic
     const isEpisodeLocked = (index: number) => false;
     const isLocked = false;
+
+    useEffect(() => { setMounted(true); }, []);
 
     // Helper: Select Video Source
     const getVideoSrc = (ep: Episode) => {
@@ -94,133 +251,6 @@ export default function DramaPlayer({
         const v720 = ep.cdnList[0]?.videoPathList.find((v) => v.quality === 720);
         return v720?.videoPath || ep.cdnList[0]?.videoPathList[0]?.videoPath || "";
     };
-
-    // --- EFFECT: Hydration ---
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // --- EFFECT: Video Logic (Unified & Robust) ---
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const src = getVideoSrc(currentEpisode);
-        let hls: Hls | null = null;
-        let isMounted = true; // Guard against unmount updates
-
-        // Reset states
-        setIsLoading(true);
-        setIsPlaying(false);
-
-        // Event Handlers
-        const handleWaiting = () => { if (isMounted) setIsLoading(true); };
-        const handleCanPlay = () => { if (isMounted) setIsLoading(false); };
-        const handlePlaying = () => {
-            if (isMounted) {
-                setIsLoading(false);
-                setIsPlaying(true);
-            }
-        };
-        const handlePause = () => { if (isMounted) setIsPlaying(false); };
-
-        video.addEventListener("waiting", handleWaiting);
-        video.addEventListener("canplay", handleCanPlay);
-        video.addEventListener("playing", handlePlaying);
-        video.addEventListener("pause", handlePause);
-
-        // Initialize Player Source
-        const initVideo = async () => {
-            try {
-                console.log("Initializing Video Source:", src);
-
-                // ROBUST CHECK: specific fix for GoodShort URLs with query params
-                if (Hls.isSupported() && src.includes(".m3u8")) {
-                    console.log("Using HLS.js (Robust Mode)");
-                    hls = new Hls({
-                        debug: false, // Turn off for prod, enable if needed
-                        enableWorker: true,
-                        lowLatencyMode: true,
-                    });
-                    hls.loadSource(src);
-                    hls.attachMedia(video);
-
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        console.log("HLS Manifest Parsed, attempting autoplay...");
-                        video.play().catch((e) => console.log("Autoplay blocked/failed:", e));
-                    });
-
-                    // Add Error Handling
-                    hls.on(Hls.Events.ERROR, function (event, data) {
-                        if (data.fatal) {
-                            switch (data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    console.log("fatal network error encountered, try to recover");
-                                    hls?.startLoad();
-                                    break;
-                                case Hls.ErrorTypes.MEDIA_ERROR:
-                                    console.log("fatal media error encountered, try to recover");
-                                    hls?.recoverMediaError();
-                                    break;
-                                default:
-                                    console.log("cannot recover, destroy hls");
-                                    hls?.destroy();
-                                    break;
-                            }
-                        }
-                    });
-
-                } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-                    // Native HLS (Safari)
-                    console.log("Using Native HLS (Safari)");
-                    video.src = src;
-                    video.addEventListener("loadedmetadata", () => {
-                        video.play().catch((e) => console.log("Native Autoplay blocked/failed:", e));
-                    }, { once: true });
-                } else {
-                    // Standard MP4
-                    console.log("Using Standard MP4");
-                    video.src = src;
-                    video.load();
-                    video.play().catch((e) => console.log("MP4 Autoplay blocked/failed:", e));
-                }
-            } catch (e) {
-                console.error("Video Init Logic Error", e);
-            }
-        };
-
-        initVideo();
-
-        return () => {
-            isMounted = false;
-            video.removeEventListener("waiting", handleWaiting);
-            video.removeEventListener("canplay", handleCanPlay);
-            video.removeEventListener("playing", handlePlaying);
-            video.removeEventListener("pause", handlePause);
-            if (hls) {
-                hls.destroy();
-                console.log("HLS Destroyed");
-            }
-        };
-    }, [currentEpisode]); // Only re-run when episode changes
-
-    const togglePlay = useCallback(() => {
-        if (!videoRef.current) {
-            console.log("Toggle Play: No Video Ref");
-            return;
-        }
-        console.log("Toggle Play. Paused?", videoRef.current.paused);
-        if (videoRef.current.paused) {
-            const playPromise = videoRef.current.play();
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => console.log("Manual Play Successful"))
-                    .catch((error) => console.error("Manual Play Failed:", error));
-            }
-        } else {
-            videoRef.current.pause();
-        }
-    }, []);
 
     const handleEpisodeClick = (ep: Episode) => {
         setCurrentEpisode(ep);
@@ -258,78 +288,51 @@ export default function DramaPlayer({
             {!isMobile && (
                 <div className="py-6 min-h-screen">
                     <div className="container mx-auto px-4 max-w-[1400px]">
+                        {/* Breadcrumbs */}
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
                             <Link href="/" className="hover:text-blue-500 flex items-center gap-1">Home</Link>
                             <ChevronRight size={14} />
                             <Link href="/" className="hover:text-blue-500">Drama</Link>
                             <ChevronRight size={14} />
-                            <span className="text-gray-300 font-medium truncate max-w-[200px]">{dramaTitle || "Unknown Drama"}</span>
+                            <span className="text-gray-300 font-medium truncate max-w-[200px]">{dramaTitle}</span>
                             <ChevronRight size={14} />
                             <span className="text-blue-500 font-medium">Episode {currentEpisode.chapterIndex + 1}</span>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-2 space-y-6">
+                                {/* Player Wrapper */}
                                 <div className="relative w-full bg-black overflow-hidden shadow-2xl border border-gray-800 aspect-video group">
-                                    <video
-                                        ref={videoRef}
-                                        controls={!isLocked}
-                                        controlsList="nodownload"
-                                        onContextMenu={(e) => e.preventDefault()}
-                                        className={cn("w-full h-full object-contain", isLocked && "blur-sm opacity-50")}
+                                    <VideoPlayer
+                                        src={getVideoSrc(currentEpisode)}
                                         poster={dramaCover}
+                                        isLocked={isLocked}
                                         onEnded={handleVideoEnded}
-                                        playsInline
-                                    >
-                                        {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
-                                        Your browser does not support the video tag.
-                                    </video>
-                                    {isLoading && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                                            <div className="w-10 h-10 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
-                                        </div>
-                                    )}
-                                    {isLocked && (
-                                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-black/40">
-                                            <div className="bg-black/80 backdrop-blur-md p-8 border border-white/10 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
-                                                <div className="w-16 h-16 bg-white/10 flex items-center justify-center mb-6 mx-auto">
-                                                    <Lock className="w-8 h-8 text-white" />
-                                                </div>
-                                                <h3 className="text-2xl font-bold text-white mb-2">Login Required</h3>
-                                                <p className="text-gray-400 mb-8 text-sm leading-relaxed">
-                                                    Login untuk melanjutkan menonton Episode {currentEpisode.chapterIndex + 1} ke atas.
-                                                    <br /><span className="text-yellow-500 text-xs">Episode 1-5 GRATIS!</span>
-                                                </p>
-                                                <button onClick={() => signIn("google")} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 transition flex items-center justify-center gap-2">
-                                                    <Play size={18} fill="currentColor" />
-                                                    <span>Login untuk Menonton</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
+                                        isMobile={false}
+                                    />
                                 </div>
+                                {/* Info */}
                                 <div>
                                     <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                                        {dramaTitle || "Drama Title"} – Episode {currentEpisode.chapterIndex + 1}
+                                        {dramaTitle} – Episode {currentEpisode.chapterIndex + 1}
                                     </h1>
                                     <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
                                         <div className="flex items-center gap-1"><Star className="w-4 h-4 text-yellow-500" fill="currentColor" /><span>4.8</span></div>
                                         <span>•</span><span>{episodes.length} Episodes</span><span>•</span><span className="text-blue-400">Ongoing</span>
                                     </div>
-                                    <p className="text-gray-400 leading-relaxed text-sm md:text-base border-t border-gray-800 pt-4">
-                                        {dramaTitle} Episode {currentEpisode.chapterIndex + 1}. Watch full episodes online.
-                                    </p>
                                 </div>
                             </div>
+
+                            {/* Sidebar Logic (List) - Unchanged */}
                             <div className="lg:col-span-1">
                                 <div className="bg-[#1a1a1a] border border-gray-800 overflow-hidden sticky top-24">
                                     <div className="p-4 border-b border-gray-800 bg-[#222]">
-                                        <h2 className="font-bold text-white text-lg">Episodes <span className="text-gray-500 text-sm font-normal">({episodes.length})</span></h2>
+                                        <h2 className="font-bold text-white text-lg">Episodes</h2>
                                     </div>
                                     {totalPages > 1 && (
                                         <div className="flex items-center gap-2 p-3 overflow-x-auto border-b border-gray-800 no-scrollbar">
                                             {Array.from({ length: totalPages }).map((_, idx) => (
-                                                <button key={idx} onClick={() => setPage(idx)} className={cn("px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors", page === idx ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white")}>
+                                                <button key={idx} onClick={() => setPage(idx)} className={cn("px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors", page === idx ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400")}>
                                                     {idx * ITEMS_PER_PAGE + 1} - {Math.min((idx + 1) * ITEMS_PER_PAGE, episodes.length)}
                                                 </button>
                                             ))}
@@ -338,10 +341,9 @@ export default function DramaPlayer({
                                     <div className="p-3 grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-[500px] overflow-y-auto custom-scrollbar">
                                         {currentEpisodesList.map((ep) => {
                                             const isActive = currentEpisode.chapterId === ep.chapterId;
-                                            const isLockedItem = isEpisodeLocked(ep.chapterIndex);
                                             return (
-                                                <button key={ep.chapterId} onClick={() => handleEpisodeClick(ep)} className={cn("aspect-square flex items-center justify-center text-xs font-medium transition-colors relative", isActive ? "bg-blue-600 text-white" : "bg-[#252525] text-gray-400 hover:bg-[#333] hover:text-white", isLockedItem && "opacity-75")}>
-                                                    {isLockedItem ? <Lock size={12} className="text-yellow-500" /> : ep.chapterIndex + 1}
+                                                <button key={ep.chapterId} onClick={() => handleEpisodeClick(ep)} className={cn("aspect-square flex items-center justify-center text-xs font-medium transition-colors", isActive ? "bg-blue-600 text-white" : "bg-[#252525] text-gray-400")}>
+                                                    {ep.chapterIndex + 1}
                                                 </button>
                                             );
                                         })}
@@ -356,6 +358,7 @@ export default function DramaPlayer({
             {/* ================= MOBILE LAYOUT ================= */}
             {isMobile && (
                 <div className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none">
+                    {/* Header */}
                     <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
                         <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition pointer-events-auto">
                             <ChevronRight size={28} className="rotate-180" />
@@ -379,53 +382,21 @@ export default function DramaPlayer({
                                 dragElastic={0.2}
                                 onDragEnd={(e, { offset, velocity }) => {
                                     const swipe = offset.y;
-                                    if (swipe < -minSwipeDistance) {
-                                        handleSwipe(true, false);
-                                    } else if (swipe > minSwipeDistance) {
-                                        handleSwipe(false, true);
-                                    }
+                                    if (swipe < -minSwipeDistance) handleSwipe(true, false);
+                                    else if (swipe > minSwipeDistance) handleSwipe(false, true);
                                 }}
                             >
-                                <div
-                                    className="absolute inset-0 z-10 flex items-center justify-center p-4"
-                                    onClick={togglePlay}
-                                >
-                                    {isLoading && (
-                                        <div className="w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
-                                    )}
-                                    {!isLoading && !isPlaying && !isLocked && (
-                                        <div className="w-16 h-16 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center animate-in zoom-in duration-200">
-                                            <Play size={32} className="text-white ml-1" fill="currentColor" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <video
-                                    ref={videoRef}
-                                    className={cn("w-full h-full object-contain", isLocked && "blur-md opacity-30")}
+                                <VideoPlayer
+                                    src={getVideoSrc(currentEpisode)}
                                     poster={dramaCover}
+                                    isLocked={isLocked}
                                     onEnded={handleVideoEnded}
-                                    playsInline
-                                    controls={false}
-                                    controlsList="nodownload"
-                                    onContextMenu={(e) => e.preventDefault()}
-                                >
-                                    {/* Source handled by useEffect */}
-                                </video>
-
-                                {isLocked && (
-                                    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-8 text-center bg-black/50 backdrop-blur-sm">
-                                        <Lock size={48} className="text-white/50 mb-4" />
-                                        <h3 className="text-xl font-bold mb-2">Episode Locked</h3>
-                                        <p className="text-sm text-gray-400 mb-6">Login to continue watching</p>
-                                        <button onClick={() => signIn("google")} className="bg-blue-600 text-white px-8 py-3 font-bold active:scale-95 transition">
-                                            Login Now
-                                        </button>
-                                    </div>
-                                )}
+                                    isMobile={true}
+                                />
                             </motion.div>
                         </AnimatePresence>
 
+                        {/* Social Buttons */}
                         <div className="absolute right-4 bottom-32 z-20 flex flex-col items-center gap-6 pointer-events-auto">
                             <div className="flex flex-col items-center gap-1">
                                 <button onClick={() => setIsLiked(!isLiked)} className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition rounded-full">
@@ -441,9 +412,10 @@ export default function DramaPlayer({
                             </div>
                         </div>
 
+                        {/* Footer Info */}
                         <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
                             <div className="mb-3">
-                                <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle || "Short Drama"}</h2>
+                                <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle}</h2>
                                 <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
                                     Episode {currentEpisode.chapterIndex + 1} - Watch this amazing drama moment!
                                 </p>
@@ -470,10 +442,9 @@ export default function DramaPlayer({
                                     <div className="grid grid-cols-5 gap-3">
                                         {episodes.map((ep) => {
                                             const isActive = currentEpisode.chapterId === ep.chapterId;
-                                            const isLockedItem = isEpisodeLocked(ep.chapterIndex);
                                             return (
-                                                <button key={ep.chapterId} onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }} className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border border-white/5", isActive ? "bg-blue-600 text-white border-blue-500" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white", isLockedItem && "opacity-70")}>
-                                                    {isLockedItem ? <Lock size={14} className="text-yellow-500" /> : ep.chapterIndex + 1}
+                                                <button key={ep.chapterId} onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }} className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border border-white/5", isActive ? "bg-blue-600 text-white border-blue-500" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white")}>
+                                                    {ep.chapterIndex + 1}
                                                 </button>
                                             );
                                         })}
