@@ -100,7 +100,7 @@ export default function DramaPlayer({
         setMounted(true);
     }, []);
 
-    // --- EFFECT: Video Logic (Unified) ---
+    // --- EFFECT: Video Logic (Unified & Robust) ---
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -132,28 +132,60 @@ export default function DramaPlayer({
         // Initialize Player Source
         const initVideo = async () => {
             try {
+                console.log("Initializing Video Source:", src);
+
+                // ROBUST CHECK: specific fix for GoodShort URLs with query params
                 if (Hls.isSupported() && src.includes(".m3u8")) {
-                    hls = new Hls();
+                    console.log("Using HLS.js (Robust Mode)");
+                    hls = new Hls({
+                        debug: false, // Turn off for prod, enable if needed
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                    });
                     hls.loadSource(src);
                     hls.attachMedia(video);
+
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        // Attempt autoplay, but handle failure gracefully
-                        video.play().catch(() => { });
+                        console.log("HLS Manifest Parsed, attempting autoplay...");
+                        video.play().catch((e) => console.log("Autoplay blocked/failed:", e));
                     });
+
+                    // Add Error Handling
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.log("fatal network error encountered, try to recover");
+                                    hls?.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.log("fatal media error encountered, try to recover");
+                                    hls?.recoverMediaError();
+                                    break;
+                                default:
+                                    console.log("cannot recover, destroy hls");
+                                    hls?.destroy();
+                                    break;
+                            }
+                        }
+                    });
+
                 } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
                     // Native HLS (Safari)
+                    console.log("Using Native HLS (Safari)");
                     video.src = src;
                     video.addEventListener("loadedmetadata", () => {
-                        video.play().catch(() => { });
+                        video.play().catch((e) => console.log("Native Autoplay blocked/failed:", e));
                     }, { once: true });
                 } else {
                     // Standard MP4
+                    console.log("Using Standard MP4");
                     video.src = src;
                     video.load();
-                    video.play().catch(() => { });
+                    video.play().catch((e) => console.log("MP4 Autoplay blocked/failed:", e));
                 }
             } catch (e) {
-                console.error("Video Init Error", e);
+                console.error("Video Init Logic Error", e);
             }
         };
 
@@ -165,14 +197,26 @@ export default function DramaPlayer({
             video.removeEventListener("canplay", handleCanPlay);
             video.removeEventListener("playing", handlePlaying);
             video.removeEventListener("pause", handlePause);
-            if (hls) hls.destroy();
+            if (hls) {
+                hls.destroy();
+                console.log("HLS Destroyed");
+            }
         };
     }, [currentEpisode]); // Only re-run when episode changes
 
     const togglePlay = useCallback(() => {
-        if (!videoRef.current) return;
+        if (!videoRef.current) {
+            console.log("Toggle Play: No Video Ref");
+            return;
+        }
+        console.log("Toggle Play. Paused?", videoRef.current.paused);
         if (videoRef.current.paused) {
-            videoRef.current.play().catch(() => { });
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => console.log("Manual Play Successful"))
+                    .catch((error) => console.error("Manual Play Failed:", error));
+            }
         } else {
             videoRef.current.pause();
         }
