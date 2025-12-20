@@ -49,8 +49,14 @@ async function fetchFromApi(endpoint: string, params: Record<string, string> = {
   const url = new URL(baseUrl, isServer ? undefined : window.location.origin);
 
   // Default params
-  if (!params.lang) params.lang = "id";
   if (!params.source) params.source = "dramabox"; // Default source
+
+  // Set default language based on source
+  // Dramabox upstream (dramaboxdb) does not support ID, so we keep EN to avoid 404s.
+  // GoodShort supports ID, so we default to ID as requested.
+  if (!params.lang) {
+    params.lang = params.source === "goodshort" ? "id" : "en";
+  }
 
   Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
 
