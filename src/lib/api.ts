@@ -1,3 +1,4 @@
+
 export interface Drama {
   bookId: string;
   bookName: string;
@@ -6,69 +7,7 @@ export interface Drama {
   tags?: string[];
   playCount?: string;
   chapterCount?: number;
-  // Add other fields as needed
-}
-
-export interface ApiResponse {
-  // The API seems to return an array directly based on the curl output
-  // but usually APIs return a wrapped object.
-  // The curl output showed: [{"isEntry":0, ...}, ...]
-  // So it returns Drama[] directly.
-}
-
-// Direct API URL
-const DIRECT_API = 'https://dramabox.sansekai.my.id/api/dramabox';
-
-
-// Helper to construct full URL
-// On Client (Dev & Prod), use local proxy to bypass CORS
-// On Server, use Direct API
-const buildUrl = (path: string) => {
-  if (typeof window === 'undefined') {
-    return `${DIRECT_API}${path}`;
-  }
-  return `/api/proxy${path}`;
-}
-
-
-export async function getForYouDramas(): Promise<Drama[]> {
-  try {
-    const res = await fetch(buildUrl('/foryou'), {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    } as any);
-
-    if (!res.ok) {
-      throw new Error('Failed to fetch data');
-    }
-
-    // The API returns a mixed array where some items contain nested 'tagBooks'.
-    // We need to parse this carefully.
-    const data = await res.json();
-
-    // Flatten the data to get a consistent list of dramas
-    // From the curl output:
-    // Item 0: { dataFrom: "算法_推荐剧", tagCardVo: { tagBooks: [...] } } -> Specific structure
-    // Item 1: { bookId: "...", bookName: "...", ... } -> Direct drama object
-
-    let dramas: Drama[] = [];
-
-    if (Array.isArray(data)) {
-      data.forEach((item: any) => {
-        if (item.tagCardVo && item.tagCardVo.tagBooks) {
-          // It's a collection card, extract books from here
-          dramas.push(...item.tagCardVo.tagBooks);
-        } else if (item.bookId) {
-          // It's a direct drama item
-          dramas.push(item);
-        }
-      });
-    }
-
-    return dramas;
-  } catch (error) {
-    console.error('Error fetching For You dramas:', error);
-    return [];
-  }
+  source?: "dramabox" | "goodshort"; // Track source for linking
 }
 
 export interface Episode {
@@ -85,72 +24,158 @@ export interface Episode {
   }[];
 }
 
-export async function getDramaEpisodes(bookId: string): Promise<Episode[]> {
+const API_BASE = process.env.API_BASE_URL || "https://api-dramabox.mkstore.id";
+const API_KEY = process.env.API_SECRET || "";
+
+// Helper for Centralized Fetching
+async function fetchFromApi(endpoint: string, params: Record<string, string> = {}) {
+  const url = new URL(`${API_BASE}/api${endpoint}`);
+
+  // Default params
+  if (!params.lang) params.lang = "en";
+  if (!params.source) params.source = "dramabox"; // Default source
+
+  Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
+
   try {
-    // Note: This endpoint might be slower as it fetches all episodes.
-    const res = await fetch(buildUrl(`/allepisode?bookId=${bookId}`), {
-      cache: 'no-store'
+    const res = await fetch(url.toString(), {
+      headers: {
+        "x-api-key": API_KEY,
+        "Content-Type": "application/json"
+      },
+      next: { revalidate: 3600 } // Cache for 1 hour
     });
 
     if (!res.ok) {
-      console.error(`[API Error] Failed to fetch episodes for bookId ${bookId}. Status: ${res.status} ${res.statusText}`);
-      // Try to read text if possible for more info
-      try {
-        const text = await res.text();
-        console.error(`[API Error Body]`, text.slice(0, 200));
-      } catch (e) { /* ignore */ }
-
-      throw new Error(`Failed to fetch episodes: ${res.status}`);
+      console.error(`[API Error] ${res.status} ${res.statusText} - ${url.toString()}`);
+      return null;
     }
 
-    const data = await res.json();
-    return data;
+    return await res.json();
   } catch (error) {
-    console.error("Error fetching episodes:", error);
-    return [];
+    console.error("[Fetch Error]", error);
+    return null;
   }
 }
 
-export async function getTrendingDramas(): Promise<Drama[]> {
-  return fetchDramas(buildUrl('/trending'));
+// --- DATA MAPPING HELPERS ---
+
+function mapDramaboxItem(item: any): Drama {
+  return {
+    bookId: item.bookId,
+    bookName: item.bookName,
+    coverWap: item.cover,
+    introduction: item.introduction,
+    chapterCount: item.chapterCount,
+    source: "dramabox"
+  };
 }
 
-export async function getLatestDramas(): Promise<Drama[]> {
-  return fetchDramas(buildUrl('/latest'));
+// GoodShort structure might differ, simplified mapping for now
+function mapGoodshortItem(item: any): Drama {
+  // Adaptation based on typical GoodShort fields (to be verified)
+  return {
+    bookId: item.bookId || item.id,
+    bookName: item.bookName || item.title,
+    coverWap: item.cover || item.coverUrl,
+    introduction: item.introduction || item.intro,
+    chapterCount: item.chapterCount || item.episodesCount,
+    source: "goodshort"
+  };
 }
 
-export async function searchDramas(query: string): Promise<Drama[]> {
-  return fetchDramas(buildUrl(`/search?query=${encodeURIComponent(query)}`));
+// --- PUBLIC FUNCTIONS ---
+
+export async function getForYouDramas(source: "dramabox" | "goodshort" = "dramabox"): Promise<Drama[]> {
+  const json = await fetchFromApi(`/${source}/home`, { source });
+  if (!json?.data) return [];
+
+  // Dramabox: data.pageProps.smallData
+  // GoodShort: data (direct list?) -> need to verify structure, assuming generic list for now
+
+  let list = [];
+  if (source === "dramabox") {
+    list = json.data.smallData || [];
+    return list.map(mapDramaboxItem);
+  } else {
+    // GoodShort structure from Project 27 analysis
+    list = json.data.bookList || json.data || [];
+    return list.map(mapGoodshortItem);
+  }
 }
 
-// Helper to reuse the parsing logic
-async function fetchDramas(url: string): Promise<Drama[]> {
-  try {
-    const res = await fetch(url, { next: { revalidate: 3600 } } as RequestInit & { next?: { revalidate?: number } });
-    if (!res.ok) throw new Error('Failed to fetch');
+export async function getTrendingDramas(source: "dramabox" | "goodshort" = "dramabox"): Promise<Drama[]> {
+  const json = await fetchFromApi(`/${source}/home`, { source });
+  if (!json?.data) return [];
 
-    const data = await res.json();
-    let dramas: Drama[] = [];
+  if (source === "dramabox") {
+    const list = json.data.bigList || [];
+    return list.map(mapDramaboxItem);
+  } else {
+    // Fallback for Goodshort (maybe they don't have bigList, use normal list)
+    const list = json.data.bookList || [];
+    return list.map(mapGoodshortItem);
+  }
+}
 
-    if (Array.isArray(data)) {
-      data.forEach((item: any) => {
-        if (item.tagCardVo && item.tagCardVo.tagBooks) {
-          // Process nested dramas
-          const nested = item.tagCardVo.tagBooks.map((d: any) => ({
-            ...d,
-            coverWap: d.coverWap || d.cover // Normalize cover field
-          }));
-          dramas.push(...nested);
-        } else if (item.bookId) {
-          // Process direct drama object
-          item.coverWap = item.coverWap || item.cover; // Normalize cover field
-          dramas.push(item);
-        }
-      });
-    }
-    return dramas;
-  } catch (error) {
-    console.error(`Error fetching from ${url}:`, error);
-    return [];
+export async function getLatestDramas(source: "dramabox" | "goodshort" = "dramabox"): Promise<Drama[]> {
+  // For Dramabox we use Genre 260. For Goodshort we might use a different endpoint or default home
+  if (source === "dramabox") {
+    const json = await fetchFromApi(`/dramabox/genre`, { id: "260" });
+    const list = json?.data?.bookList || [];
+    return list.map(mapDramaboxItem);
+  } else {
+    // Goodshort Latest logic (placeholder)
+    return getForYouDramas("goodshort");
+  }
+}
+
+export async function getDramaEpisodes(bookId: string, source: "dramabox" | "goodshort" = "dramabox"): Promise<Episode[]> {
+  const json = await fetchFromApi(`/${source}/movie`, { id: bookId, source });
+  if (!json?.data) return [];
+
+  if (source === "dramabox") {
+    const chapters = json.data.chapterList || [];
+    return chapters.map((ch: any) => ({
+      chapterId: ch.id,
+      chapterIndex: ch.index,
+      chapterName: ch.name,
+      isCharge: ch.unlock ? 0 : 1,
+      cdnList: [{
+        videoPathList: [{
+          quality: 720,
+          videoPath: ch.mp4 || "",
+          isDefault: 1
+        }]
+      }]
+    }));
+  } else {
+    // GoodShort Episode Mapping
+    const chapters = json.data.chapterList || [];
+    return chapters.map((ch: any) => ({
+      chapterId: ch.id,
+      chapterIndex: ch.index,
+      chapterName: ch.name,
+      isCharge: 0, // Assume free for now
+      cdnList: [{
+        videoPathList: [{
+          quality: 720,
+          videoPath: ch.url || "", // Verify field name
+          isDefault: 1
+        }]
+      }]
+    }));
+  }
+}
+
+export async function searchDramas(query: string, source: "dramabox" | "goodshort" = "dramabox"): Promise<Drama[]> {
+  const json = await fetchFromApi(`/${source}/search`, { q: query, source });
+
+  if (source === "dramabox") {
+    const list = json?.data?.list || [];
+    return list.map(mapDramaboxItem);
+  } else {
+    const list = json?.data || [];
+    return list.map(mapGoodshortItem);
   }
 }

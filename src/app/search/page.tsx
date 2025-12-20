@@ -14,6 +14,7 @@ function SearchContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const query = searchParams.get("q") || "";
+    const source = (searchParams.get("source") as "dramabox" | "goodshort") || "dramabox";
 
     // Local state for immediate typing feedback
     const [inputValue, setInputValue] = useState(query);
@@ -27,18 +28,20 @@ function SearchContent() {
         setInputValue(query);
     }, [query]);
 
+    // ...
+
     // Fetch Trending on Mount
     useEffect(() => {
         const fetchTrending = async () => {
             try {
-                const data = await getTrendingDramas();
+                const data = await getTrendingDramas(source);
                 setTrending(data.slice(0, 6)); // Show top 6 trending
             } catch (e) {
                 console.error(e);
             }
         };
         fetchTrending();
-    }, []);
+    }, [source]); // Re-fetch when source changes
 
     // Perform Search
     useEffect(() => {
@@ -49,7 +52,7 @@ function SearchContent() {
             }
             setLoading(true);
             try {
-                const data = await searchDramas(query);
+                const data = await searchDramas(query, source);
                 setResults(data);
             } catch (error) {
                 console.error("Search error:", error);
@@ -60,25 +63,23 @@ function SearchContent() {
 
         const timeoutId = setTimeout(() => {
             fetchResults();
-        }, 300); // 300ms debounce if we were debouncing locally, but here we depend on URL. 
-        // Actually since we rely on URL, we just fetch immediately when URL changes.
-        // But for typing, we need to handle the router.push debounce.
+        }, 300);
 
         return () => clearTimeout(timeoutId);
-    }, [query]);
+    }, [query, source]); // Re-fetch when query or source changes
 
     const handleSearch = (term: string) => {
         setInputValue(term);
         if (term.trim()) {
-            router.push(`/search?q=${encodeURIComponent(term)}`);
+            router.push(`/search?q=${encodeURIComponent(term)}&source=${source}`);
         } else {
-            router.push(`/search`);
+            router.push(`/search?source=${source}`); // Keep source
         }
     };
 
     const clearSearch = () => {
         setInputValue("");
-        router.push("/search");
+        router.push(`/search?source=${source}`);
         inputRef.current?.focus();
     };
 

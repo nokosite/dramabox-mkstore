@@ -21,6 +21,9 @@ function DramaContent() {
     const title = searchParams.get("title") || undefined;
     const cover = searchParams.get("cover") || undefined;
 
+    // Extract source
+    const source = (searchParams.get("source") as "dramabox" | "goodshort") || "dramabox";
+
     const [episodes, setEpisodes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -30,7 +33,7 @@ function DramaContent() {
             if (!bookId) return;
             setLoading(true);
             try {
-                const data = await getDramaEpisodes(bookId);
+                const data = await getDramaEpisodes(bookId, source);
                 if (!data || data.length === 0) {
                     setError(true);
                 } else {
@@ -45,7 +48,7 @@ function DramaContent() {
         };
 
         fetchEpisodes();
-    }, [bookId]);
+    }, [bookId, source]);
 
     if (loading) {
         return (
@@ -62,7 +65,7 @@ function DramaContent() {
                 <p className="text-gray-400 mb-8 max-w-md text-center">
                     We are experiencing issues connecting to the server for this specific drama. Please try again later or browse other dramas.
                 </p>
-                <Link href="/" className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
+                <Link href={`/?source=${source}`} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
                     <ArrowLeft size={18} /> Back to Home
                 </Link>
             </div>

@@ -7,11 +7,13 @@ import { Search, User, Headphones, LogOut, Menu, X } from "lucide-react"; // Kee
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function Navbar() {
     const { data: session, update } = useSession();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const source = searchParams.get("source") || "dramabox";
 
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -53,10 +55,28 @@ export default function Navbar() {
                             <Link href="/" className="text-blue-500 hover:text-blue-400">Beranda</Link>
 
                             <Link href="#" className="hover:text-white transition">Aplikasi</Link>
-                            <button className="flex items-center gap-1 hover:text-white transition">
-                                <Headphones size={16} />
-                                <span>Layanan</span>
-                            </button>
+                            <Link href="#" className="hover:text-white transition">Aplikasi</Link>
+
+                            {/* Source Switcher */}
+                            <div className="relative group">
+                                <button className="flex items-center gap-1 hover:text-white transition uppercase font-bold text-xs tracking-wider border border-white/20 px-2 py-1 rounded-md">
+                                    {source === "goodshort" ? "GoodShort" : "Dramabox"}
+                                </button>
+                                <div className="absolute top-full left-0 mt-2 w-32 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 hidden group-hover:block">
+                                    <button
+                                        onClick={() => router.push("/?source=dramabox")}
+                                        className={`block w-full text-left px-4 py-2 text-sm ${source !== "goodshort" ? "text-blue-500 font-bold" : "text-gray-400 hover:text-white"}`}
+                                    >
+                                        Dramabox
+                                    </button>
+                                    <button
+                                        onClick={() => router.push("/?source=goodshort")}
+                                        className={`block w-full text-left px-4 py-2 text-sm ${source === "goodshort" ? "text-purple-500 font-bold" : "text-gray-400 hover:text-white"}`}
+                                    >
+                                        GoodShort
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
