@@ -72,7 +72,7 @@ async function fetchFromApi(endpoint: string, params: Record<string, string> = {
 
     const res = await fetch(url.toString(), {
       headers,
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 0 } // Disable cache to ensure fresh language data
     });
 
     if (!res.ok) {
