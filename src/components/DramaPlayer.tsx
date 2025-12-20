@@ -132,7 +132,7 @@ export default function DramaPlayer({
         // Initialize Player Source
         const initVideo = async () => {
             try {
-                if (Hls.isSupported() && src.endsWith(".m3u8")) {
+                if (Hls.isSupported() && src.includes(".m3u8")) {
                     hls = new Hls();
                     hls.loadSource(src);
                     hls.attachMedia(video);
