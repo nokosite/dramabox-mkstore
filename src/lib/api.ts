@@ -52,10 +52,9 @@ async function fetchFromApi(endpoint: string, params: Record<string, string> = {
   if (!params.source) params.source = "dramabox"; // Default source
 
   // Set default language based on source
-  // Dramabox upstream (dramaboxdb) does not support ID, so we keep EN to avoid 404s.
-  // GoodShort supports ID, so we default to ID as requested.
+  // Now both sources support ID (Dramabox via 'in.json' mapping).
   if (!params.lang) {
-    params.lang = params.source === "goodshort" ? "id" : "en";
+    params.lang = "id";
   }
 
   Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
