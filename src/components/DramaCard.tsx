@@ -6,9 +6,10 @@ import { Play } from "lucide-react";
 interface DramaCardProps {
     drama: Drama;
     className?: string;
+    priority?: boolean;
 }
 
-export default function DramaCard({ drama, className }: DramaCardProps) {
+export default function DramaCard({ drama, className, priority = false }: DramaCardProps) {
     return (
         <Link
             href={{
@@ -29,6 +30,7 @@ export default function DramaCard({ drama, className }: DramaCardProps) {
                     alt={drama.bookName || "Drama Cover"}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    priority={priority}
                     className="object-cover opacity-90 transition-opacity group-hover:opacity-100"
                     unoptimized={!drama.coverWap} // Unoptimized for placeholder
                 />

@@ -27,7 +27,7 @@ export default function DramaList({ dramas, title = "For You" }: DramaListProps)
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                 {dramas.map((drama, index) => (
                     <div key={`${drama.bookId}-${index}`}>
-                        <DramaCard drama={drama} />
+                        <DramaCard drama={drama} priority={index === 0} />
                     </div>
                 ))}
             </div>

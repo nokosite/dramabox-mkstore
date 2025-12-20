@@ -162,10 +162,29 @@ export async function getLatestDramas(source: "dramabox" | "goodshort" = "dramab
 }
 
 export async function getDramaEpisodes(bookId: string, source: "dramabox" | "goodshort" = "dramabox"): Promise<Episode[]> {
-  const json = await fetchFromApi(`/${source}/movie`, { id: bookId, source });
+  // Helpers
+  const isGoodShortId = (id: string) => id.length > 9 && /^\d+$/.test(id); // Heuristic: GoodShort IDs are long numbers
+
+  // Heuristic Override: If Source is Dramabox but ID looks like GoodShort, switch.
+  // This fixes stale links or user errors.
+  let effectiveSource = source;
+  if (source === "dramabox" && isGoodShortId(bookId)) {
+    effectiveSource = "goodshort";
+  }
+
+  let json = await fetchFromApi(`/${effectiveSource}/movie`, { id: bookId, source: effectiveSource });
+
+  // Retry logic: If no data, try the other source just in case
+  if (!json?.data) {
+    const otherSource = effectiveSource === "dramabox" ? "goodshort" : "dramabox";
+    json = await fetchFromApi(`/${otherSource}/movie`, { id: bookId, source: otherSource });
+    if (json?.data) effectiveSource = otherSource; // Update effective source for mapping
+  }
+
   if (!json?.data) return [];
 
-  if (source === "dramabox") {
+  // Mapping based on the SUCCESSFUL source (effectiveSource)
+  if (effectiveSource === "dramabox") {
     const chapters = json.data.chapterList || [];
     return chapters.map((ch: any) => ({
       chapterId: ch.id,

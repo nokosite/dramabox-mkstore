@@ -9,7 +9,6 @@ import {
     ChevronRight, Star, Home
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
