@@ -58,83 +58,139 @@ export default function DramaPlayer({
 }: DramaPlayerProps) {
     const [mounted, setMounted] = useState(false);
     const isMobile = useIsMobile();
-
-    // We only use one ref now, as only one player will exist at a time
     const videoRef = useRef<HTMLVideoElement>(null);
     const { data: session } = useSession();
 
-    // Sort episodes by index just in case
+    // Sort episodes by index
     const episodes = [...initialEpisodes].sort((a, b) => a.chapterIndex - b.chapterIndex);
-
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(episodes[0]);
 
-    // Filter/Pagination for episodes (Group by 50)
+    // Pagination
     const [page, setPage] = useState(0);
     const ITEMS_PER_PAGE = 50;
     const totalPages = Math.ceil(episodes.length / ITEMS_PER_PAGE);
     const currentEpisodesList = episodes.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
+    // Playback State
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Mobile Episode Drawer State
+    const [showMobileEpisodes, setShowMobileEpisodes] = useState(false);
+    const toggleMobileEpisodes = () => setShowMobileEpisodes(!showMobileEpisodes);
+
+    // Social & Swipe
+    const [isLiked, setIsLiked] = useState(false);
+    const minSwipeDistance = 50;
+    const [direction, setDirection] = useState(0);
+
+    // Lock Logic (Static)
+    const isEpisodeLocked = (index: number) => false;
+    const isLocked = false;
+
+    // Helper: Select Video Source
+    const getVideoSrc = (ep: Episode) => {
+        if (!ep) return "";
+        const v720 = ep.cdnList[0]?.videoPathList.find((v) => v.quality === 720);
+        return v720?.videoPath || ep.cdnList[0]?.videoPathList[0]?.videoPath || "";
+    };
+
+    // --- EFFECT: Hydration ---
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // --- EFFECT: Video Logic (Unified) ---
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const src = getVideoSrc(currentEpisode);
+        let hls: Hls | null = null;
+        let isMounted = true; // Guard against unmount updates
+
+        // Reset states
+        setIsLoading(true);
+        setIsPlaying(false);
+
+        // Event Handlers
+        const handleWaiting = () => { if (isMounted) setIsLoading(true); };
+        const handleCanPlay = () => { if (isMounted) setIsLoading(false); };
+        const handlePlaying = () => {
+            if (isMounted) {
+                setIsLoading(false);
+                setIsPlaying(true);
+            }
+        };
+        const handlePause = () => { if (isMounted) setIsPlaying(false); };
+
+        video.addEventListener("waiting", handleWaiting);
+        video.addEventListener("canplay", handleCanPlay);
+        video.addEventListener("playing", handlePlaying);
+        video.addEventListener("pause", handlePause);
+
+        // Initialize Player Source
+        const initVideo = async () => {
+            try {
+                if (Hls.isSupported() && src.endsWith(".m3u8")) {
+                    hls = new Hls();
+                    hls.loadSource(src);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        // Attempt autoplay, but handle failure gracefully
+                        video.play().catch(() => { });
+                    });
+                } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                    // Native HLS (Safari)
+                    video.src = src;
+                    video.addEventListener("loadedmetadata", () => {
+                        video.play().catch(() => { });
+                    }, { once: true });
+                } else {
+                    // Standard MP4
+                    video.src = src;
+                    video.load();
+                    video.play().catch(() => { });
+                }
+            } catch (e) {
+                console.error("Video Init Error", e);
+            }
+        };
+
+        initVideo();
+
+        return () => {
+            isMounted = false;
+            video.removeEventListener("waiting", handleWaiting);
+            video.removeEventListener("canplay", handleCanPlay);
+            video.removeEventListener("playing", handlePlaying);
+            video.removeEventListener("pause", handlePause);
+            if (hls) hls.destroy();
+        };
+    }, [currentEpisode]); // Only re-run when episode changes
+
+    const togglePlay = useCallback(() => {
+        if (!videoRef.current) return;
+        if (videoRef.current.paused) {
+            videoRef.current.play().catch(() => { });
+        } else {
+            videoRef.current.pause();
+        }
+    }, []);
+
     const handleEpisodeClick = (ep: Episode) => {
         setCurrentEpisode(ep);
     };
 
-    // Auto-play next episode when ended
     const handleVideoEnded = () => {
-        // if (!session) return; // REMOVED LOCK
-
         const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
         if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
             setCurrentEpisode(episodes[currentIndex + 1]);
         }
     };
 
-    // Prevent Hydration Mismatch
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // Auto-play when episode changes
-    useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.load();
-            videoRef.current.play().catch((e) => console.log("Auto-play blocked", e));
-        }
-    }, [currentEpisode]);
-
-    const getVideoSrc = (ep: Episode) => {
-        if (!ep) return "";
-        // Priority: 720p -> first available
-        const v720 = ep.cdnList[0]?.videoPathList.find((v) => v.quality === 720);
-        return v720?.videoPath || ep.cdnList[0]?.videoPathList[0]?.videoPath || "";
-    };
-
-    // Calculate range string for pagination text
-    const rangeStart = page * ITEMS_PER_PAGE + 1;
-    const rangeEnd = Math.min((page + 1) * ITEMS_PER_PAGE, episodes.length);
-
-    // Lock Logic
-    const isEpisodeLocked = (index: number) => false; // FREE FOR ALL
-    const isLocked = false;
-
-    // Mobile Episode Drawer State
-    const [showMobileEpisodes, setShowMobileEpisodes] = useState(false);
-    const toggleMobileEpisodes = () => setShowMobileEpisodes(!showMobileEpisodes);
-
-    // Mock Social interactions
-    const [isLiked, setIsLiked] = useState(false);
-
-    // Touch Handling - Replaced by Framer Motion Drag
-    const minSwipeDistance = 50;
-    const [direction, setDirection] = useState(0);
-
     const handleSwipe = (isUpSwipe: boolean, isDownSwipe: boolean) => {
         if (isUpSwipe) {
-            // Next Episode (Swipe Up) -> Enter from Bottom (positive dir? No. Next is usually below. Swipe UP means move content UP. Next comes from BOTTOM.)
-            // So enters from 100%. Direction should be positive?
-            // Let's convention: Next = +1. Prev = -1.
-            // Swipe Up (Gesture) -> Go to Next. Content moves UP. Next content comes from BOTTOM.
-            // Enter variant: y: 100%. Exit variant: y: -100%.
-            // So if Direction = 1 (Next), Enter y=100%, Exit y=-100%.
             setDirection(1);
             const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
             if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
@@ -142,9 +198,6 @@ export default function DramaPlayer({
             }
         }
         if (isDownSwipe) {
-            // Prev Episode (Swipe Down) -> Go to Prev. Content moves DOWN. Prev content comes from TOP.
-            // Enter variant: y: -100%. Exit variant: y: 100%.
-            // So if Direction = -1 (Prev), Enter y=-100%, Exit y=100%.
             setDirection(-1);
             const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
             if (currentIndex > 0) {
@@ -153,110 +206,14 @@ export default function DramaPlayer({
         }
     };
 
-    if (!mounted) return <div className="min-h-screen bg-black" />; // Avoid hydration mismatch
-
-    // Playback State
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // HLS & Video Handling
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const src = getVideoSrc(currentEpisode);
-        let hls: Hls | null = null;
-
-        // Reset states
-        setIsLoading(true);
-        setIsPlaying(false);
-
-        const handleWaiting = () => setIsLoading(true);
-        const handleCanPlay = () => setIsLoading(false);
-        const handlePlaying = () => {
-            setIsLoading(false);
-            setIsPlaying(true);
-        };
-        const handlePause = () => setIsPlaying(false);
-
-        // Attach listeners
-        video.addEventListener("waiting", handleWaiting);
-        video.addEventListener("canplay", handleCanPlay);
-        video.addEventListener("playing", handlePlaying);
-        video.addEventListener("pause", handlePause);
-
-        // HLS Logic
-        if (Hls.isSupported() && src.endsWith(".m3u8")) {
-            hls = new Hls();
-            hls.loadSource(src);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(console.error);
-            });
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-            // Native HLS (Safari)
-            video.src = src;
-            video.addEventListener("loadedmetadata", () => {
-                video.play().catch(console.error);
-            });
-        } else {
-            // Standard MP4
-            video.src = src;
-            video.load();
-            video.play().catch(console.error);
-        }
-
-        return () => {
-            // Cleanup
-            video.removeEventListener("waiting", handleWaiting);
-            video.removeEventListener("canplay", handleCanPlay);
-            video.removeEventListener("playing", handlePlaying);
-            video.removeEventListener("pause", handlePause);
-            if (hls) hls.destroy();
-        };
-    }, [currentEpisode]);
-
-    const togglePlay = useCallback(() => {
-        if (!videoRef.current) return;
-        if (videoRef.current.paused) {
-            videoRef.current.play().catch(console.error);
-        } else {
-            videoRef.current.pause();
-        }
-    }, []);
-
-    // ... (rest of the component logic)
-
-    // Helper for visual feedback on mobile
-    const MobileOverlay = () => (
-        <div
-            className="absolute inset-0 z-10 flex items-center justify-center p-4"
-            onClick={togglePlay} // Clicking overlay toggles play
-        >
-            {/* Loading Spinner */}
-            {isLoading && (
-                <div className="w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
-            )}
-
-            {/* Play Button (Only show if NOT loading and paused) */}
-            {!isLoading && !isPlaying && !isLocked && (
-                <div className="w-16 h-16 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center animate-in zoom-in duration-200">
-                    <Play size={32} className="text-white ml-1" fill="currentColor" />
-                </div>
-            )}
-        </div>
-    );
-
-    if (!mounted) return <div className="min-h-screen bg-black" />; // Avoid hydration mismatch
+    if (!mounted) return <div className="min-h-screen bg-black" />;
 
     return (
         <div className="text-gray-200 selection:bg-blue-500/30">
-
-            {/* ================= DESKTOP LAYOUT (Only Render if NOT Mobile) ================= */}
+            {/* ================= DESKTOP LAYOUT ================= */}
             {!isMobile && (
                 <div className="py-6 min-h-screen">
                     <div className="container mx-auto px-4 max-w-[1400px]">
-                        {/* Breadcrumbs */}
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
                             <Link href="/" className="hover:text-blue-500 flex items-center gap-1">Home</Link>
                             <ChevronRight size={14} />
@@ -268,9 +225,7 @@ export default function DramaPlayer({
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            {/* Left Column: Player & Info */}
                             <div className="lg:col-span-2 space-y-6">
-                                {/* Player Wrapper */}
                                 <div className="relative w-full bg-black overflow-hidden shadow-2xl border border-gray-800 aspect-video group">
                                     <video
                                         ref={videoRef}
@@ -285,15 +240,11 @@ export default function DramaPlayer({
                                         {!isLocked && <source src={getVideoSrc(currentEpisode)} type="video/mp4" />}
                                         Your browser does not support the video tag.
                                     </video>
-
-                                    {/* Desktop Overlay for Loading/Play (Optional but good for UX) */}
                                     {isLoading && (
                                         <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
                                             <div className="w-10 h-10 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
                                         </div>
                                     )}
-
-                                    {/* Lock Overlay */}
                                     {isLocked && (
                                         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-black/40">
                                             <div className="bg-black/80 backdrop-blur-md p-8 border border-white/10 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
@@ -313,8 +264,6 @@ export default function DramaPlayer({
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Title & Stats */}
                                 <div>
                                     <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
                                         {dramaTitle || "Drama Title"} – Episode {currentEpisode.chapterIndex + 1}
@@ -328,14 +277,11 @@ export default function DramaPlayer({
                                     </p>
                                 </div>
                             </div>
-
-                            {/* Right Column: Sidebar Episode List */}
                             <div className="lg:col-span-1">
                                 <div className="bg-[#1a1a1a] border border-gray-800 overflow-hidden sticky top-24">
                                     <div className="p-4 border-b border-gray-800 bg-[#222]">
                                         <h2 className="font-bold text-white text-lg">Episodes <span className="text-gray-500 text-sm font-normal">({episodes.length})</span></h2>
                                     </div>
-                                    {/* Pagination */}
                                     {totalPages > 1 && (
                                         <div className="flex items-center gap-2 p-3 overflow-x-auto border-b border-gray-800 no-scrollbar">
                                             {Array.from({ length: totalPages }).map((_, idx) => (
@@ -345,7 +291,6 @@ export default function DramaPlayer({
                                             ))}
                                         </div>
                                     )}
-                                    {/* Grid */}
                                     <div className="p-3 grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-[500px] overflow-y-auto custom-scrollbar">
                                         {currentEpisodesList.map((ep) => {
                                             const isActive = currentEpisode.chapterId === ep.chapterId;
@@ -364,13 +309,9 @@ export default function DramaPlayer({
                 </div>
             )}
 
-
-            {/* ================= MOBILE LAYOUT (Only Render if Mobile) ================= */}
+            {/* ================= MOBILE LAYOUT ================= */}
             {isMobile && (
-                <div
-                    className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none"
-                // Touch Handlers managed by Framer Motion Drag
-                >
+                <div className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none">
                     <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
                         <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition pointer-events-auto">
                             <ChevronRight size={28} className="rotate-180" />
@@ -395,14 +336,25 @@ export default function DramaPlayer({
                                 onDragEnd={(e, { offset, velocity }) => {
                                     const swipe = offset.y;
                                     if (swipe < -minSwipeDistance) {
-                                        handleSwipe(true, false); // Up
+                                        handleSwipe(true, false);
                                     } else if (swipe > minSwipeDistance) {
-                                        handleSwipe(false, true); // Down
+                                        handleSwipe(false, true);
                                     }
                                 }}
                             >
-                                {/* Overlay for Controls & Feedback */}
-                                <MobileOverlay />
+                                <div
+                                    className="absolute inset-0 z-10 flex items-center justify-center p-4"
+                                    onClick={togglePlay}
+                                >
+                                    {isLoading && (
+                                        <div className="w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
+                                    )}
+                                    {!isLoading && !isPlaying && !isLocked && (
+                                        <div className="w-16 h-16 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center animate-in zoom-in duration-200">
+                                            <Play size={32} className="text-white ml-1" fill="currentColor" />
+                                        </div>
+                                    )}
+                                </div>
 
                                 <video
                                     ref={videoRef}
@@ -414,7 +366,7 @@ export default function DramaPlayer({
                                     controlsList="nodownload"
                                     onContextMenu={(e) => e.preventDefault()}
                                 >
-                                    {/* Source handled by useEffect now */}
+                                    {/* Source handled by useEffect */}
                                 </video>
 
                                 {isLocked && (
