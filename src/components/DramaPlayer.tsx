@@ -535,24 +535,25 @@ export default function DramaPlayer({
                                         />
 
                                         {/* Footer Info Layer (Per Slide) - Floating Style */}
-                                        <div className="absolute bottom-16 left-0 w-full z-20 px-5 pointer-events-none">
-                                            <div className="mb-4 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
-                                                <h2 className="font-bold text-white text-lg mb-1 leading-tight">{dramaTitle}</h2>
-                                                <p className="text-sm text-gray-200 line-clamp-2 leading-snug font-medium opacity-90">
-                                                    {ep.chapterName || `Episode ${ep.chapterIndex + 1}`}
-                                                </p>
-                                            </div>
+                                        <div className="absolute bottom-10 left-0 w-full z-20 px-5 pb-safe pointer-events-none">
+                                            <div className="flex items-end justify-between gap-3">
+                                                <div className="mb-4 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] flex-1">
+                                                    <h2 className="font-bold text-white text-lg mb-1 leading-tight line-clamp-2">{dramaTitle}</h2>
+                                                    <p className="text-sm text-gray-200 line-clamp-1 leading-snug font-medium opacity-90">
+                                                        {ep.chapterName || `Episode ${ep.chapterIndex + 1}`}
+                                                    </p>
+                                                </div>
 
-                                            {/* Floating Pill Button */}
-                                            <div className="flex justify-end pointer-events-auto">
-                                                <button
-                                                    onClick={toggleMobileEpisodes}
-                                                    className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-semibold px-5 py-2.5 rounded-full flex items-center gap-2 hover:bg-white/20 transition-all active:scale-95 shadow-lg"
-                                                >
-                                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
-                                                    Watch More ({episodes.length})
-                                                    <ChevronRight size={14} className="opacity-70" />
-                                                </button>
+                                                {/* Floating Box Button */}
+                                                <div className="flex-shrink-0 mb-4 pointer-events-auto">
+                                                    <button
+                                                        onClick={toggleMobileEpisodes}
+                                                        className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-bold px-3 py-3 rounded-xl flex flex-col items-center gap-1 hover:bg-white/20 transition-all active:scale-95 shadow-lg min-w-[60px]"
+                                                    >
+                                                        <span className="text-[10px] opacity-80 uppercase tracking-widest">EPS</span>
+                                                        <span className="text-lg leading-none">{episodes.length}</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
