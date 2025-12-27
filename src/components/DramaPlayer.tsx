@@ -417,7 +417,7 @@ export default function DramaPlayer({
                             <div className="mb-3">
                                 <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle}</h2>
                                 <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
-                                    Episode {currentEpisode.chapterIndex + 1} - Watch this amazing drama moment!
+                                    {currentEpisode.chapterName || `Episode ${currentEpisode.chapterIndex + 1}`}
                                 </p>
                             </div>
                             <button onClick={toggleMobileEpisodes} className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors rounded-lg">
@@ -433,7 +433,7 @@ export default function DramaPlayer({
                     {showMobileEpisodes && (
                         <div className="absolute inset-0 z-50">
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileEpisodes(false)} />
-                            <div className="absolute bottom-0 left-0 w-full bg-[#121212] max-h-[70vh] flex flex-col animate-in slide-in-from-bottom duration-300 border-t border-white/10">
+                            <div className="absolute bottom-0 left-0 w-full bg-[#121212] max-h-[70vh] flex flex-col animate-in slide-in-from-bottom duration-300 border-t border-white/10 rounded-t-2xl">
                                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                                     <h3 className="font-bold text-lg">Episodes</h3>
                                     <button onClick={() => setShowMobileEpisodes(false)} className="p-1 text-gray-400 hover:text-white"><X size={24} /></button>
@@ -443,7 +443,12 @@ export default function DramaPlayer({
                                         {episodes.map((ep) => {
                                             const isActive = currentEpisode.chapterId === ep.chapterId;
                                             return (
-                                                <button key={ep.chapterId} onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }} className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border border-white/5", isActive ? "bg-blue-600 text-white border-blue-500" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white")}>
+                                                <button
+                                                    key={ep.chapterId}
+                                                    ref={isActive ? (el) => el?.scrollIntoView({ block: "center", behavior: "smooth" }) : null}
+                                                    onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }}
+                                                    className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border rounded-lg", isActive ? "bg-blue-600 text-white border-blue-500 shadow-lg scale-105" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white border-white/5")}
+                                                >
                                                     {ep.chapterIndex + 1}
                                                 </button>
                                             );
