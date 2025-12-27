@@ -497,11 +497,11 @@ export default function DramaPlayer({
             {isMobile && (
                 <div className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none">
                     {/* Header */}
-                    <div className="absolute top-0 left-0 w-full z-20 p-4 pt-safe flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-                        <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition pointer-events-auto">
-                            <ChevronRight size={28} className="rotate-180" />
+                    {/* Header - Simple Floating Back Button */}
+                    <div className="absolute top-0 left-0 w-full z-20 px-4 pt-safe mt-3 flex items-center justify-between pointer-events-none">
+                        <Link href="/" className="w-10 h-10 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition pointer-events-auto">
+                            <ChevronRight size={24} className="rotate-180 -ml-0.5" />
                         </Link>
-                        <h1 className="text-lg font-bold drop-shadow-md">Reels</h1>
                     </div>
 
                     <Swiper
@@ -534,24 +534,26 @@ export default function DramaPlayer({
                                             isActive={isActive}
                                         />
 
-                                        {/* Footer Info Layer (Per Slide) */}
-                                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 pb-safe bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
-                                            <div className="mb-3">
-                                                <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle}</h2>
-                                                <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
+                                        {/* Footer Info Layer (Per Slide) - Floating Style */}
+                                        <div className="absolute bottom-16 left-0 w-full z-20 px-5 pointer-events-none">
+                                            <div className="mb-4 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+                                                <h2 className="font-bold text-white text-lg mb-1 leading-tight">{dramaTitle}</h2>
+                                                <p className="text-sm text-gray-200 line-clamp-2 leading-snug font-medium opacity-90">
                                                     {ep.chapterName || `Episode ${ep.chapterIndex + 1}`}
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={toggleMobileEpisodes}
-                                                className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors rounded-lg"
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+
+                                            {/* Floating Pill Button */}
+                                            <div className="flex justify-end pointer-events-auto">
+                                                <button
+                                                    onClick={toggleMobileEpisodes}
+                                                    className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-semibold px-5 py-2.5 rounded-full flex items-center gap-2 hover:bg-white/20 transition-all active:scale-95 shadow-lg"
+                                                >
+                                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
                                                     Watch More ({episodes.length})
-                                                </span>
-                                                <ChevronRight size={16} />
-                                            </button>
+                                                    <ChevronRight size={14} className="opacity-70" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </SwiperSlide>
@@ -562,10 +564,10 @@ export default function DramaPlayer({
                     {showMobileEpisodes && (
                         <div className="absolute inset-0 z-50">
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileEpisodes(false)} />
-                            <div className="absolute bottom-0 left-0 w-full bg-[#121212] max-h-[70vh] flex flex-col animate-in slide-in-from-bottom duration-300 border-t border-white/10 rounded-t-2xl">
-                                <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                                    <h3 className="font-bold text-lg">Episodes</h3>
-                                    <button onClick={() => setShowMobileEpisodes(false)} className="p-1 text-gray-400 hover:text-white"><X size={24} /></button>
+                            <div className="absolute bottom-4 left-4 right-4 bg-[#1a1a1a]/95 backdrop-blur-xl max-h-[60vh] flex flex-col animate-in slide-in-from-bottom-10 zoom-in-95 duration-300 border border-white/10 rounded-3xl shadow-2xl pb-safe">
+                                <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                                    <h3 className="font-bold text-lg text-white">Episodes</h3>
+                                    <button onClick={() => setShowMobileEpisodes(false)} className="p-2 bg-white/5 rounded-full text-gray-400 hover:text-white transition"><X size={20} /></button>
                                 </div>
                                 <div className="p-4 overflow-y-auto custom-scrollbar flex-1">
                                     <div className="grid grid-cols-5 gap-3">
@@ -576,7 +578,7 @@ export default function DramaPlayer({
                                                     key={ep.chapterId}
                                                     ref={isActive ? (el) => el?.scrollIntoView({ block: "center", behavior: "smooth" }) : null}
                                                     onClick={() => { handleEpisodeClick(ep); setShowMobileEpisodes(false); }}
-                                                    className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border rounded-lg", isActive ? "bg-blue-600 text-white border-blue-500 shadow-lg scale-105" : "bg-[#252525] text-gray-300 hover:bg-[#333] hover:text-white border-white/5")}
+                                                    className={cn("aspect-square flex items-center justify-center text-sm font-bold transition-all relative border rounded-2xl", isActive ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/20 shadow-lg scale-105" : "bg-black/40 text-gray-400 hover:bg-white/10 hover:text-white border-white/5")}
                                                 >
                                                     {ep.chapterIndex + 1}
                                                 </button>
