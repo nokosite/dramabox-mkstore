@@ -5,12 +5,18 @@ import Hls from "hls.js";
 import { Episode } from "@/lib/api";
 import {
     Play, Pause, Heart, Share2, X, Lock,
-    ChevronRight, Star
+    ChevronRight, Star, FastForward, Rewind
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+
+// Swiper
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Mousewheel } from 'swiper/modules';
+import type { Swiper as SwiperType } from 'swiper';
+import 'swiper/css';
 
 // Custom hook to detect mobile screen
 function useIsMobile() {
@@ -25,7 +31,6 @@ function useIsMobile() {
 }
 
 // --- SUB-COMPONENT: Single Video Instance ---
-// Isolates refs and HLS state to prevent collisions during animations
 interface VideoPlayerProps {
     src: string;
     poster?: string;
@@ -33,9 +38,10 @@ interface VideoPlayerProps {
     onEnded?: () => void;
     className?: string;
     isMobile?: boolean; // Controls overlay style
+    isActive: boolean; // Controls auto-play/pause for swiper
 }
 
-function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: VideoPlayerProps) {
+function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile, isActive }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -44,6 +50,11 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
+
+    // Double Tap State
+    const [showDoubleTapOverlay, setShowDoubleTapOverlay] = useState<'left' | 'right' | null>(null);
+    const lastTapTimeRef = useRef<number>(0);
+    const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // HLS & Video Logic
     useEffect(() => {
@@ -101,11 +112,10 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
                     hls.attachMedia(video);
 
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        video.play().catch(() => { });
+                        if (isActive) video.play().catch(() => { });
                     });
 
                     hls.on(Hls.Events.FRAG_LOADED, () => {
-                        // Sometimes duration isn't set until fragments load
                         if (video.duration && video.duration !== Infinity) {
                             setDuration(video.duration);
                         }
@@ -113,29 +123,14 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
 
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
-                            switch (data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    hls?.startLoad();
-                                    break;
-                                case Hls.ErrorTypes.MEDIA_ERROR:
-                                    hls?.recoverMediaError();
-                                    break;
-                                default:
-                                    hls?.destroy();
-                                    break;
-                            }
+                            hls?.startLoad(); // Simple auto retry
                         }
                     });
 
-                } else if (video && video.canPlayType("application/vnd.apple.mpegurl")) {
-                    video.src = src;
-                    video.addEventListener("loadedmetadata", () => {
-                        video.play().catch(() => { });
-                    }, { once: true });
                 } else if (video) {
                     video.src = src;
                     video.load();
-                    video.play().catch(() => { });
+                    if (isActive) video.play().catch(() => { });
                 }
             } catch (e) {
                 console.error("Video Init Error", e);
@@ -157,12 +152,57 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
             }
             if (hls) hls.destroy();
         };
-    }, [src]);
+    }, [src, isActive]); // Re-run if isActive changes (to sync play commands)
+
+    // Watch isActive to Play/Pause
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (isActive && !isLocked) {
+            video.play().catch(() => { });
+        } else {
+            video.pause();
+        }
+    }, [isActive, isLocked]);
+
 
     const togglePlay = () => {
         if (!videoRef.current) return;
         if (videoRef.current.paused) videoRef.current.play().catch(() => { });
         else videoRef.current.pause();
+    };
+
+    // Double Tap Handler
+    const handleTap = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, zone: 'left' | 'right') => {
+        // We use click for this demo, keeping it simple.
+        // Real implementation might need rigorous touch handling.
+
+        const now = Date.now();
+        if (now - lastTapTimeRef.current < 300) {
+            // Double Tap Detected
+            if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+
+            if (videoRef.current) {
+                const skipAmount = 5;
+                if (zone === 'left') {
+                    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - skipAmount);
+                    setShowDoubleTapOverlay('left');
+                } else {
+                    videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + skipAmount);
+                    setShowDoubleTapOverlay('right');
+                }
+
+                // Hide overlay after animation
+                setTimeout(() => setShowDoubleTapOverlay(null), 600);
+            }
+        } else {
+            // Single Tap
+            lastTapTimeRef.current = now;
+            tapTimeoutRef.current = setTimeout(() => {
+                togglePlay();
+            }, 300);
+        }
     };
 
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,11 +222,40 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
     };
 
     return (
-        <div className="relative w-full h-full group" onClick={togglePlay}>
+        <div className="relative w-full h-full group bg-black">
+            {/* Tap Zones Layer */}
+            {isMobile && !isLocked && (
+                <div className="absolute inset-0 z-20 flex pointer-events-auto">
+                    <div
+                        className="w-1/2 h-full z-20"
+                        onClick={(e) => { e.preventDefault(); handleTap(e, 'left'); }}
+                    />
+                    <div
+                        className="w-1/2 h-full z-20"
+                        onClick={(e) => { e.preventDefault(); handleTap(e, 'right'); }}
+                    />
+                </div>
+            )}
+
+            {/* Double Tap Visual Feedback */}
+            {showDoubleTapOverlay === 'left' && (
+                <div className="absolute left-10 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center text-white/80 animate-in zoom-in fade-out duration-500">
+                    <Rewind size={40} fill="currentColor" />
+                    <span className="text-xs font-bold mt-1">-5s</span>
+                </div>
+            )}
+            {showDoubleTapOverlay === 'right' && (
+                <div className="absolute right-10 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center text-white/80 animate-in zoom-in fade-out duration-500">
+                    <FastForward size={40} fill="currentColor" />
+                    <span className="text-xs font-bold mt-1">+5s</span>
+                </div>
+            )}
+
+
             {/* Video Element */}
             <video
                 ref={videoRef}
-                className={cn("w-full h-full object-contain bg-black", isLocked && "blur-sm opacity-50", className)}
+                className={cn("w-full h-full object-contain bg-black pointer-events-none", isLocked && "blur-sm opacity-50", className)} // pointer-events-none so clicks go to tap zones
                 poster={poster}
                 playsInline
                 controls={!isMobile && !isLocked} // Native controls on Desktop only
@@ -197,12 +266,9 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
 
             {/* Custom Overlay (Mobile & Desktop Loading) */}
             <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                {/* Pointer events none allows click through to video/div for toggle */}
-
                 {isLoading && (
                     <div className="w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin" />
                 )}
-
                 {/* Mobile Play Button - Explicit Feedback */}
                 {isMobile && !isLoading && !isPlaying && !isLocked && (
                     <div className="w-16 h-16 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center animate-in zoom-in duration-200">
@@ -215,7 +281,7 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
             {isMobile && !isLocked && (
                 <div
                     className="absolute bottom-32 left-0 w-full z-30 px-4 py-2 flex items-center gap-3 pointer-events-auto"
-                    onClick={(e) => e.stopPropagation()} // Prevent play toggle
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <span className="text-[10px] font-medium text-white/90 drop-shadow-md w-8 text-right">
                         {formatTime(currentTime)}
@@ -255,7 +321,6 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
             {/* Lock Overlay */}
             {isLocked && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-black/40 pointer-events-auto">
-                    {/* Lock UI content... reusing simplified version for reuse */}
                     <div className="bg-black/80 backdrop-blur-md p-6 border border-white/10 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
                         <Lock className="w-8 h-8 text-white mx-auto mb-4" />
                         <h3 className="text-xl font-bold text-white mb-2">Login Required</h3>
@@ -271,25 +336,6 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
 
 
 // --- MAIN COMPONENT ---
-
-const variants = {
-    enter: (direction: number) => ({
-        y: direction > 0 ? "100%" : "-100%",
-        opacity: 0,
-        zIndex: 0
-    }),
-    center: {
-        y: 0,
-        opacity: 1,
-        zIndex: 1
-    },
-    exit: (direction: number) => ({
-        y: direction < 0 ? "100%" : "-100%",
-        opacity: 0,
-        zIndex: 0
-    })
-};
-
 interface DramaPlayerProps {
     initialEpisodes: Episode[];
     bookId: string;
@@ -311,7 +357,7 @@ export default function DramaPlayer({
     const episodes = [...initialEpisodes].sort((a, b) => a.chapterIndex - b.chapterIndex);
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(episodes[0]);
 
-    // Pagination
+    // Pagination (for sidebar)
     const [page, setPage] = useState(0);
     const ITEMS_PER_PAGE = 50;
     const totalPages = Math.ceil(episodes.length / ITEMS_PER_PAGE);
@@ -321,13 +367,10 @@ export default function DramaPlayer({
     const [showMobileEpisodes, setShowMobileEpisodes] = useState(false);
     const toggleMobileEpisodes = () => setShowMobileEpisodes(!showMobileEpisodes);
 
-    // Social & Swipe
-    const [isLiked, setIsLiked] = useState(false);
-    const minSwipeDistance = 50;
-    const [direction, setDirection] = useState(0);
+    // Swiper Ref
+    const swiperRef = useRef<SwiperType>(null);
 
     // Lock Logic
-    const isEpisodeLocked = (index: number) => false;
     const isLocked = false;
 
     useEffect(() => { setMounted(true); }, []);
@@ -341,28 +384,28 @@ export default function DramaPlayer({
 
     const handleEpisodeClick = (ep: Episode) => {
         setCurrentEpisode(ep);
+        // Sync Swiper if on mobile
+        if (isMobile && swiperRef.current) {
+            const idx = episodes.findIndex(e => e.chapterId === ep.chapterId);
+            if (idx !== -1) swiperRef.current.slideTo(idx);
+        }
+    };
+
+    const handleSlideChange = (swiper: SwiperType) => {
+        const index = swiper.activeIndex;
+        if (episodes[index]) {
+            setCurrentEpisode(episodes[index]);
+        }
     };
 
     const handleVideoEnded = () => {
-        const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
-        if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
-            setCurrentEpisode(episodes[currentIndex + 1]);
-        }
-    };
-
-    const handleSwipe = (isUpSwipe: boolean, isDownSwipe: boolean) => {
-        if (isUpSwipe) {
-            setDirection(1);
+        // Auto scroll to next on finish
+        if (isMobile && swiperRef.current) {
+            swiperRef.current.slideNext();
+        } else {
             const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
             if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
-                handleEpisodeClick(episodes[currentIndex + 1]);
-            }
-        }
-        if (isDownSwipe) {
-            setDirection(-1);
-            const currentIndex = episodes.findIndex((e) => e.chapterId === currentEpisode.chapterId);
-            if (currentIndex > 0) {
-                handleEpisodeClick(episodes[currentIndex - 1]);
+                setCurrentEpisode(episodes[currentIndex + 1]);
             }
         }
     };
@@ -396,6 +439,7 @@ export default function DramaPlayer({
                                         isLocked={isLocked}
                                         onEnded={handleVideoEnded}
                                         isMobile={false}
+                                        isActive={true} // Desktop always active
                                     />
                                 </div>
                                 {/* Info */}
@@ -410,7 +454,7 @@ export default function DramaPlayer({
                                 </div>
                             </div>
 
-                            {/* Sidebar Logic (List) - Unchanged */}
+                            {/* Sidebar Logic */}
                             <div className="lg:col-span-1">
                                 <div className="bg-[#1a1a1a] border border-gray-800 overflow-hidden sticky top-24">
                                     <div className="p-4 border-b border-gray-800 bg-[#222]">
@@ -442,7 +486,7 @@ export default function DramaPlayer({
                 </div>
             )}
 
-            {/* ================= MOBILE LAYOUT ================= */}
+            {/* ================= MOBILE LAYOUT (SWIPER) ================= */}
             {isMobile && (
                 <div className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none">
                     {/* Header */}
@@ -453,54 +497,60 @@ export default function DramaPlayer({
                         <h1 className="text-lg font-bold drop-shadow-md">Reels</h1>
                     </div>
 
-                    <div className="flex-1 relative bg-[#0a0a0a] overflow-hidden">
-                        <AnimatePresence initial={false} custom={direction} mode="popLayout">
-                            <motion.div
-                                key={currentEpisode.chapterId}
-                                custom={direction}
-                                variants={variants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                className="absolute inset-0 flex items-center justify-center"
-                                drag="y"
-                                dragConstraints={{ top: 0, bottom: 0 }}
-                                dragElastic={0.2}
-                                onDragEnd={(e, { offset, velocity }) => {
-                                    const swipe = offset.y;
-                                    if (swipe < -minSwipeDistance) handleSwipe(true, false);
-                                    else if (swipe > minSwipeDistance) handleSwipe(false, true);
-                                }}
-                            >
-                                <VideoPlayer
-                                    src={getVideoSrc(currentEpisode)}
-                                    poster={dramaCover}
-                                    isLocked={isLocked}
-                                    onEnded={handleVideoEnded}
-                                    isMobile={true}
-                                />
-                            </motion.div>
-                        </AnimatePresence>
+                    <Swiper
+                        direction={'vertical'}
+                        className="h-full w-full bg-black"
+                        modules={[Mousewheel]}
+                        mousewheel={true}
+                        onSwiper={(swiper) => (swiperRef.current = swiper)}
+                        onSlideChange={handleSlideChange}
+                        initialSlide={episodes.findIndex(e => e.chapterId === currentEpisode.chapterId)}
+                    >
+                        {episodes.map((ep, index) => {
+                            // Use lazy rendering: only render -1, 0, +1 slides around current
+                            // Actually, let's just allow map, Swiper handles virtualization if configured, 
+                            // but standard map is ok for <100 items. Logic for playing is key.
+                            const isActive = currentEpisode.chapterId === ep.chapterId;
 
+                            return (
+                                <SwiperSlide key={ep.chapterId} className="h-full w-full relative">
+                                    {/* Only mount/render video if it's close to active to save memory? 
+                                        For now, render all but only PLAY active.
+                                    */}
+                                    <div className="h-full w-full relative">
+                                        <VideoPlayer
+                                            src={getVideoSrc(ep)}
+                                            poster={dramaCover}
+                                            isLocked={isLocked}
+                                            onEnded={handleVideoEnded}
+                                            isMobile={true}
+                                            isActive={isActive}
+                                        />
 
-                        {/* Footer Info */}
-                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 pb-safe bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
-                            <div className="mb-3">
-                                <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle}</h2>
-                                <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
-                                    {currentEpisode.chapterName || `Episode ${currentEpisode.chapterIndex + 1}`}
-                                </p>
-                            </div>
-                            <button onClick={toggleMobileEpisodes} className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors rounded-lg">
-                                <span className="flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                    Watch More ({episodes.length})
-                                </span>
-                                <ChevronRight size={16} />
-                            </button>
-                        </div>
-                    </div>
+                                        {/* Footer Info Layer (Per Slide) */}
+                                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 pb-safe bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
+                                            <div className="mb-3">
+                                                <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle}</h2>
+                                                <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
+                                                    {ep.chapterName || `Episode ${ep.chapterIndex + 1}`}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={toggleMobileEpisodes}
+                                                className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 text-white text-sm font-medium py-2.5 flex items-center justify-between px-3 transition-colors rounded-lg"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                                    Watch More ({episodes.length})
+                                                </span>
+                                                <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </SwiperSlide>
+                            );
+                        })}
+                    </Swiper>
 
                     {showMobileEpisodes && (
                         <div className="absolute inset-0 z-50">
