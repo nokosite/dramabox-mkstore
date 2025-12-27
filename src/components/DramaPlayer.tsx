@@ -5,7 +5,7 @@ import Hls from "hls.js";
 import { Episode } from "@/lib/api";
 import {
     Play, Pause, Heart, Share2, X, Lock,
-    ChevronRight, Star
+    ChevronRight, Star, Gauge
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
@@ -35,10 +35,14 @@ interface VideoPlayerProps {
     isMobile?: boolean; // Controls overlay style
 }
 
+const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
+    const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
     // HLS & Video Logic
     useEffect(() => {
@@ -135,6 +139,14 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
         else videoRef.current.pause();
     };
 
+    const changeSpeed = (speed: number) => {
+        if (videoRef.current) {
+            videoRef.current.playbackRate = speed;
+            setPlaybackSpeed(speed);
+        }
+        setShowSpeedMenu(false);
+    };
+
     return (
         <div className="relative w-full h-full group" onClick={togglePlay}>
             {/* Video Element */}
@@ -164,6 +176,36 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
                     </div>
                 )}
             </div>
+
+            {/* Mobile Speed Control */}
+            {isMobile && !isLocked && (
+                <div className="absolute bottom-4 right-4 z-30 pointer-events-auto">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(!showSpeedMenu); }}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-black/50 backdrop-blur-sm rounded-full text-white text-sm font-medium hover:bg-black/70 transition"
+                    >
+                        <Gauge size={16} />
+                        <span>{playbackSpeed}x</span>
+                    </button>
+
+                    {showSpeedMenu && (
+                        <div className="absolute bottom-12 right-0 bg-black/90 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden shadow-xl animate-in zoom-in-95 duration-150">
+                            {PLAYBACK_SPEEDS.map((speed) => (
+                                <button
+                                    key={speed}
+                                    onClick={(e) => { e.stopPropagation(); changeSpeed(speed); }}
+                                    className={cn(
+                                        "block w-full px-5 py-2.5 text-sm text-left transition hover:bg-white/10",
+                                        playbackSpeed === speed ? "text-blue-400 font-bold" : "text-white"
+                                    )}
+                                >
+                                    {speed}x
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Lock Overlay */}
             {isLocked && (
