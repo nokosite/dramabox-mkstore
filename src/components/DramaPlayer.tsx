@@ -61,6 +61,7 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
 
         const handleWaiting = () => { if (isMounted) setIsLoading(true); };
         const handleCanPlay = () => { if (isMounted) setIsLoading(false); };
+        const handleLoadedData = () => { if (isMounted) setIsLoading(false); };
         const handlePlaying = () => {
             if (isMounted) {
                 setIsLoading(false);
@@ -82,6 +83,7 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
 
         video.addEventListener("waiting", handleWaiting);
         video.addEventListener("canplay", handleCanPlay);
+        video.addEventListener("loadeddata", handleLoadedData);
         video.addEventListener("playing", handlePlaying);
         video.addEventListener("pause", handlePause);
         video.addEventListener("timeupdate", handleTimeUpdate);
@@ -147,6 +149,7 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
             if (video) {
                 video.removeEventListener("waiting", handleWaiting);
                 video.removeEventListener("canplay", handleCanPlay);
+                video.removeEventListener("loadeddata", handleLoadedData);
                 video.removeEventListener("playing", handlePlaying);
                 video.removeEventListener("pause", handlePause);
                 video.removeEventListener("timeupdate", handleTimeUpdate);
