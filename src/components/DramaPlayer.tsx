@@ -179,23 +179,30 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile, isAc
         // Real implementation might need rigorous touch handling.
 
         const now = Date.now();
+        const video = videoRef.current;
+        if (!video) return;
+
+        // If video is PAUSED, play immediately (Crucial for mobile policy)
+        if (video.paused) {
+            video.play().catch(() => { });
+            return; // Do not check for double tap if we just started playing
+        }
+
         if (now - lastTapTimeRef.current < 300) {
             // Double Tap Detected
             if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
 
-            if (videoRef.current) {
-                const skipAmount = 5;
-                if (zone === 'left') {
-                    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - skipAmount);
-                    setShowDoubleTapOverlay('left');
-                } else {
-                    videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + skipAmount);
-                    setShowDoubleTapOverlay('right');
-                }
-
-                // Hide overlay after animation
-                setTimeout(() => setShowDoubleTapOverlay(null), 600);
+            const skipAmount = 5;
+            if (zone === 'left') {
+                video.currentTime = Math.max(0, video.currentTime - skipAmount);
+                setShowDoubleTapOverlay('left');
+            } else {
+                video.currentTime = Math.min(video.duration, video.currentTime + skipAmount);
+                setShowDoubleTapOverlay('right');
             }
+
+            // Hide overlay after animation
+            setTimeout(() => setShowDoubleTapOverlay(null), 600);
         } else {
             // Single Tap
             lastTapTimeRef.current = now;
