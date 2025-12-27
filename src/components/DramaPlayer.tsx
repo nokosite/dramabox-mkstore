@@ -287,7 +287,7 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile, isAc
             {/* Mobile Seek Bar */}
             {isMobile && !isLocked && (
                 <div
-                    className="absolute bottom-32 left-0 w-full z-30 px-4 py-2 flex items-center gap-3 pointer-events-auto"
+                    className="absolute bottom-0 left-0 w-full z-30 px-4 pb-safe pt-4 flex items-center gap-3 pointer-events-auto bg-gradient-to-t from-black/80 to-transparent"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <span className="text-[10px] font-medium text-white/90 drop-shadow-md w-8 text-right">
