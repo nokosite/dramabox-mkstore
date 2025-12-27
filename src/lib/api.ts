@@ -228,7 +228,8 @@ export async function searchDramas(query: string, source: "dramabox" | "goodshor
   const json = await fetchFromApi(`/${source}/search`, { q: query, source });
 
   if (source === "dramabox") {
-    const list = json?.data?.list || [];
+    // Backend returns { results: [] }, handle legacy data.list just in case
+    const list = json?.results || json?.data?.list || [];
     return list.map(mapDramaboxItem);
   } else {
     const data = json?.data || {};
