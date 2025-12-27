@@ -5,7 +5,7 @@ import Hls from "hls.js";
 import { Episode } from "@/lib/api";
 import {
     Play, Pause, Heart, Share2, X, Lock,
-    ChevronRight, Star, Gauge
+    ChevronRight, Star
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
@@ -35,14 +35,15 @@ interface VideoPlayerProps {
     isMobile?: boolean; // Controls overlay style
 }
 
-const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
 function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [playbackSpeed, setPlaybackSpeed] = useState(1);
-    const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+
+    // Seek Bar State
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
 
     // HLS & Video Logic
     useEffect(() => {
@@ -55,6 +56,8 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
         // Reset states on mount (new src)
         setIsLoading(true);
         setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
 
         const handleWaiting = () => { if (isMounted) setIsLoading(true); };
         const handleCanPlay = () => { if (isMounted) setIsLoading(false); };
@@ -66,14 +69,26 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
         };
         const handlePause = () => { if (isMounted) setIsPlaying(false); };
 
+        const handleTimeUpdate = () => {
+            if (isMounted && video && !isDragging) {
+                setCurrentTime(video.currentTime);
+            }
+        };
+        const handleLoadedMetadata = () => {
+            if (isMounted && video) {
+                setDuration(video.duration);
+            }
+        };
+
         video.addEventListener("waiting", handleWaiting);
         video.addEventListener("canplay", handleCanPlay);
         video.addEventListener("playing", handlePlaying);
         video.addEventListener("pause", handlePause);
+        video.addEventListener("timeupdate", handleTimeUpdate);
+        video.addEventListener("loadedmetadata", handleLoadedMetadata);
 
         const initVideo = async () => {
             try {
-                // Robust Check: includes() for query params
                 if (Hls.isSupported() && src && src.includes(".m3u8")) {
                     hls = new Hls({
                         debug: false,
@@ -87,7 +102,13 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
                         video.play().catch(() => { });
                     });
 
-                    // Auto-Recovery Logic
+                    hls.on(Hls.Events.FRAG_LOADED, () => {
+                        // Sometimes duration isn't set until fragments load
+                        if (video.duration && video.duration !== Infinity) {
+                            setDuration(video.duration);
+                        }
+                    });
+
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
                             switch (data.type) {
@@ -123,11 +144,13 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
 
         return () => {
             isMounted = false;
-            if (video) { // Check if ref still exists (cleanup)
+            if (video) {
                 video.removeEventListener("waiting", handleWaiting);
                 video.removeEventListener("canplay", handleCanPlay);
                 video.removeEventListener("playing", handlePlaying);
                 video.removeEventListener("pause", handlePause);
+                video.removeEventListener("timeupdate", handleTimeUpdate);
+                video.removeEventListener("loadedmetadata", handleLoadedMetadata);
             }
             if (hls) hls.destroy();
         };
@@ -139,12 +162,20 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
         else videoRef.current.pause();
     };
 
-    const changeSpeed = (speed: number) => {
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const time = parseFloat(e.target.value);
+        setCurrentTime(time);
         if (videoRef.current) {
-            videoRef.current.playbackRate = speed;
-            setPlaybackSpeed(speed);
+            videoRef.current.currentTime = time;
         }
-        setShowSpeedMenu(false);
+    };
+
+    // Format helper
+    const formatTime = (time: number) => {
+        if (!time || isNaN(time)) return "00:00";
+        const m = Math.floor(time / 60);
+        const s = Math.floor(time % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
     return (
@@ -177,33 +208,44 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile }: Vi
                 )}
             </div>
 
-            {/* Mobile Speed Control */}
+            {/* Mobile Seek Bar */}
             {isMobile && !isLocked && (
-                <div className="absolute bottom-4 right-4 z-30 pointer-events-auto">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(!showSpeedMenu); }}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-black/50 backdrop-blur-sm rounded-full text-white text-sm font-medium hover:bg-black/70 transition"
-                    >
-                        <Gauge size={16} />
-                        <span>{playbackSpeed}x</span>
-                    </button>
-
-                    {showSpeedMenu && (
-                        <div className="absolute bottom-12 right-0 bg-black/90 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden shadow-xl animate-in zoom-in-95 duration-150">
-                            {PLAYBACK_SPEEDS.map((speed) => (
-                                <button
-                                    key={speed}
-                                    onClick={(e) => { e.stopPropagation(); changeSpeed(speed); }}
-                                    className={cn(
-                                        "block w-full px-5 py-2.5 text-sm text-left transition hover:bg-white/10",
-                                        playbackSpeed === speed ? "text-blue-400 font-bold" : "text-white"
-                                    )}
-                                >
-                                    {speed}x
-                                </button>
-                            ))}
+                <div
+                    className="absolute bottom-32 left-0 w-full z-30 px-4 py-2 flex items-center gap-3 pointer-events-auto"
+                    onClick={(e) => e.stopPropagation()} // Prevent play toggle
+                >
+                    <span className="text-[10px] font-medium text-white/90 drop-shadow-md w-8 text-right">
+                        {formatTime(currentTime)}
+                    </span>
+                    <div className="flex-1 relative h-6 flex items-center">
+                        <input
+                            type="range"
+                            min={0}
+                            max={duration || 100}
+                            value={currentTime}
+                            onChange={handleSeek}
+                            onTouchStart={() => setIsDragging(true)}
+                            onTouchEnd={() => setIsDragging(false)}
+                            onMouseDown={() => setIsDragging(true)}
+                            onMouseUp={() => setIsDragging(false)}
+                            className="absolute z-20 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        {/* Custom Track */}
+                        <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
+                            <div
+                                className="h-full bg-blue-500 rounded-full"
+                                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                            />
                         </div>
-                    )}
+                        {/* Custom Thumb (Pseudo) */}
+                        <div
+                            className="absolute h-3 w-3 bg-white rounded-full shadow-md pointer-events-none"
+                            style={{ left: `calc(${(currentTime / (duration || 1)) * 100}% - 6px)` }}
+                        />
+                    </div>
+                    <span className="text-[10px] font-medium text-white/50 drop-shadow-md w-8">
+                        {formatTime(duration)}
+                    </span>
                 </div>
             )}
 
@@ -401,7 +443,7 @@ export default function DramaPlayer({
             {isMobile && (
                 <div className="fixed inset-0 z-[60] bg-black text-white flex flex-col select-none">
                     {/* Header */}
-                    <div className="absolute top-0 left-0 w-full z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+                    <div className="absolute top-0 left-0 w-full z-20 p-4 pt-safe flex items-center gap-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
                         <Link href="/" className="p-2 -ml-2 hover:bg-white/10 transition pointer-events-auto">
                             <ChevronRight size={28} className="rotate-180" />
                         </Link>
@@ -438,24 +480,9 @@ export default function DramaPlayer({
                             </motion.div>
                         </AnimatePresence>
 
-                        {/* Social Buttons */}
-                        <div className="absolute right-4 bottom-32 z-20 flex flex-col items-center gap-6 pointer-events-auto">
-                            <div className="flex flex-col items-center gap-1">
-                                <button onClick={() => setIsLiked(!isLiked)} className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition rounded-full">
-                                    <Heart size={28} fill={isLiked ? "#ef4444" : "none"} stroke={isLiked ? "#ef4444" : "currentColor"} />
-                                </button>
-                                <span className="text-xs font-medium drop-shadow-md">{isLiked ? "2.5k" : "2.4k"}</span>
-                            </div>
-                            <div className="flex flex-col items-center gap-1">
-                                <button className="p-3 bg-black/40 backdrop-blur-sm active:scale-90 transition rounded-full">
-                                    <Share2 size={28} />
-                                </button>
-                                <span className="text-xs font-medium drop-shadow-md">Share</span>
-                            </div>
-                        </div>
 
                         {/* Footer Info */}
-                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
+                        <div className="absolute bottom-0 left-0 w-full z-20 px-3 pb-6 pt-12 pb-safe bg-gradient-to-t from-black/80 to-transparent pointer-events-auto">
                             <div className="mb-3">
                                 <h2 className="font-bold text-white text-base drop-shadow-sm mb-1">{dramaTitle}</h2>
                                 <p className="text-[13px] text-gray-100 line-clamp-2 leading-snug drop-shadow-sm opacity-90">
