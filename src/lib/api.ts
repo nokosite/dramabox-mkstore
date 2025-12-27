@@ -170,12 +170,8 @@ export async function getDramaEpisodes(bookId: string, source: "dramabox" | "goo
   // Helpers
   const isGoodShortId = (id: string) => id.length > 9 && /^\d+$/.test(id); // Heuristic: GoodShort IDs are long numbers
 
-  // Heuristic Override: If Source is Dramabox but ID looks like GoodShort, switch.
-  // This fixes stale links or user errors.
+  // Heuristic Override REMOVED: source param is more reliable.
   let effectiveSource = source;
-  if (source === "dramabox" && isGoodShortId(bookId)) {
-    effectiveSource = "goodshort";
-  }
 
   let json = await fetchFromApi(`/${effectiveSource}/movie`, { id: bookId, source: effectiveSource });
 
