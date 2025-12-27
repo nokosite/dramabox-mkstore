@@ -368,7 +368,7 @@ export default function DramaPlayer({
     const toggleMobileEpisodes = () => setShowMobileEpisodes(!showMobileEpisodes);
 
     // Swiper Ref
-    const swiperRef = useRef<SwiperType>(null);
+    const swiperRef = useRef<SwiperType | null>(null);
 
     // Lock Logic
     const isLocked = false;
