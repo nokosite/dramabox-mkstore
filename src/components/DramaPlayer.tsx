@@ -152,7 +152,7 @@ function VideoPlayer({ src, poster, isLocked, onEnded, className, isMobile, isAc
             }
             if (hls) hls.destroy();
         };
-    }, [src, isActive]); // Re-run if isActive changes (to sync play commands)
+    }, [src]); // Only re-run if src changes. isActive handled by separate effect.
 
     // Watch isActive to Play/Pause
     useEffect(() => {
